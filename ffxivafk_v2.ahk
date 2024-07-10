@@ -8,10 +8,12 @@ Home::
 {
     Loop
     {
-        slp := floor(Random(0.2, 0.5) * 1000)
-        ControlSend "{Space down}",, "FINAL FANTASY XIV"
-        Sleep slp
-        ControlSend "{Space up}",, "FINAL FANTASY XIV"
+        if WinExist("FINAL FANTASY XIV") {
+            slp := floor(Random(0.2, 0.5) * 1000)
+            ControlSend "{Space down}",, "FINAL FANTASY XIV"
+            Sleep slp
+            ControlSend "{Space up}",, "FINAL FANTASY XIV"
+        }
         slp := floor(Random(60*10, 60*12) * 1000)
         Sleep slp
     }
