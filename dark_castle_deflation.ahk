@@ -9,21 +9,29 @@ Home::
 loop{
     startmap
     placeboats
-
-    slprand 5.6*60*1000
+    
+    SetTimer detectlvlupscreen, 6000
+    slprand 5.7*60*1000
+    SetTimer detectlvlupscreen, 0
+    slprand random(0,20*1000)
     endround
+    slprand random(0,20*1000)
     }
 }
 
 PgUp::
 {   
-    Msgbox 5.6*60*1000
+    Msgbox PixelSearch(&posx,&posy,1240,600,1320,667,0xffffff,1)
 }
 
 PgDn::
 {
 MouseGetPos &xpos, &ypos 
 MsgBox "The cursor is at X" xpos " Y" ypos
+}
+
+test(){
+Msgbox 1
 }
 
 clkrand(x,y,btn:="Left", xoff?, yoff?)
@@ -76,11 +84,11 @@ lvlup(s1:=0, s2:=0, s3:=0, lr:="L"){
     else
         x:=2070
     loop s1
-        clkslp x,657
+        clkslp x,657,200
     loop s2
-        clkslp x,864
+        clkslp x,864,200
     loop s3
-        clkslp x,1040
+        clkslp x,1040,200
 }
 
 
@@ -119,6 +127,16 @@ endround(){
     clkslp 1270, 1200
     clkslp 957, 1140
     slprand 2000
+}
+
+
+detectlvlupscreen(){
+    if PixelSearch(&posx,&posy,1240,600,1320,667,0xffffff,1)
+    {
+        clkrand 1280, 120
+        slprand 1000
+        clkrand 1280, 120
+    }
 }
 
 ^+`::
