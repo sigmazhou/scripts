@@ -13,9 +13,9 @@ loop{
     SetTimer detectlvlupscreen, 6000
     slprand 5.7*60*1000
     SetTimer detectlvlupscreen, 0
-    slprand random(0,20*1000)
+    slprand random(0,15*1000)
     endround
-    slprand random(0,20*1000)
+    slprand random(0,15*1000)
     }
 }
 
