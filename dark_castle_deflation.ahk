@@ -14,7 +14,7 @@ loop{
     startgame
     
     SetTimer detectlvlupscreen, 6000
-    slprand 5.7*60*1000
+    slprand 5.6*60*1000
     SetTimer detectlvlupscreen, 0
     slprand random(0,15*1000)
     endround
@@ -102,6 +102,7 @@ startgame(){
 
 
 placeboats(){
+    ;5.7*60*1000
     loop 14
         wheeldownslp
     yoff:=Random(-5,0)
@@ -131,6 +132,7 @@ placeboats(){
 
 
 placeboatsv2(){
+    ;5.6*60*1000, possibly 5.5
     loop 14
         wheeldownslp
     yoff:=Random(-5,0)
