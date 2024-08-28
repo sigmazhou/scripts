@@ -4,11 +4,14 @@
 SendMode "Input"  ; Recommended for new scripts due to its superior speed and reliability.
 SetWorkingDir A_ScriptDir  ; Ensures a consistent starting directory.
 
+; make sure have auto next round on
 Home::
 {
 loop{
     startmap
-    placeboats
+    placeboatsv2
+    placeboatsexp
+    startgame
     
     SetTimer detectlvlupscreen, 6000
     slprand 5.7*60*1000
@@ -21,7 +24,8 @@ loop{
 
 PgUp::
 {   
-    Msgbox PixelSearch(&posx,&posy,1240,600,1320,667,0xffffff,1)
+    placeboatsv2
+    placeboatsexp
 }
 
 PgDn::
@@ -91,6 +95,11 @@ lvlup(s1:=0, s2:=0, s3:=0, lr:="L"){
         clkslp x,1040,200
 }
 
+startgame(){
+    clkslp 2450, 1360
+    clkslp 2450, 1360
+}
+
 
 placeboats(){
     loop 14
@@ -117,9 +126,60 @@ placeboats(){
     lvlup 3,2,0     ;bt2
     clkslp 1455, 471
     lvlup 1,3,0     ;bt3
+}
+
+
+
+placeboatsv2(){
+    loop 14
+        wheeldownslp
+    yoff:=Random(-5,0)
+    clkslp 2450, 960
+    clkslp 1310, 577,,0,yoff    ;village
     
-    clkslp 2450, 1360
-    clkslp 2450, 1360
+    clkslp 1310, 577
+    lvlup 0,0,2     ;vlg
+
+    clkslp 2281, 632
+    clkslp 1075, 598,,0,yoff     ;ninja
+    clkslp 2281, 456
+    clkslp 1171, 597,,0,yoff     ;wizard
+    clkslp 2437, 636
+    clkslp 1074, 520,,0,yoff     ;alchem
+
+    clkslp 1171, 597
+    lvlup 0,3,2     ;wizard
+    clkslp 1075, 598
+    lvlup 4,0,2     ;ninja
+    clkslp 1074, 520
+    lvlup 4,0,0     ;alchem
+    
+    clkslp 1310, 577
+    clkslp 450, 1211    ;sell village
+}
+
+
+placeboatsexp(){
+    yoff:=Random(0,5)
+    clkslp 2281, 992
+    clkslp 1337, 901,,0,yoff     ;spike
+    loop 14
+        wheelupslp
+    clkslp 2437, 308
+    clkslp 1222, 886,,0,yoff     ;dart
+    clkslp 2281, 481
+    clkslp 1125, 891,,0,yoff     ;boomerang
+    clkslp 2281, 1021
+    clkslp 1452, 923,,0,yoff     ;submarine
+    
+    clkslp 1337, 901    ;spike
+    lvlup 2,0,0
+    clkslp 1222, 886    ;dart
+    lvlup 0,0,4
+    clkslp 1125, 891    ;boomerang
+    lvlup 0,0,3
+    clkslp 1452, 923    ;submarine
+    lvlup 2,0,1
 }
 
 
