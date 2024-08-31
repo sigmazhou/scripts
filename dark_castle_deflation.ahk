@@ -16,22 +16,22 @@ loop{
     SetTimer detectlvlupscreen, 6000
     slprand 5.6*60*1000
     SetTimer detectlvlupscreen, 0
-    slprand random(0,15*1000)
+    slprand random(0,10*1000)
     endround
-    slprand random(0,15*1000)
+    detecttotemeventscreen
+    slprand random(0,10*1000)
     }
 }
 
 PgUp::
 {   
-    placeboatsv2
-    placeboatsexp
+detecttotemeventscreen
 }
 
 PgDn::
 {
 MouseGetPos &xpos, &ypos 
-MsgBox "The cursor is at X" xpos " Y" ypos
+MsgBox "The cursor is at X" xpos " Y" ypos " color" PixelGetColor(xpos,ypos)
 }
 
 test(){
@@ -195,9 +195,23 @@ endround(){
 detectlvlupscreen(){
     if PixelSearch(&posx,&posy,1240,600,1320,667,0xffffff,1)
     {
-        clkrand 1280, 120
+        clkslp 1280, 120, 1000
+        clkslp 1280, 120, 1000
+    }
+}
+
+
+detecttotemeventscreen(){
+    if PixelSearch(&posx,&posy,1275,775,1285,785,0x00a1ff,0)
+    {
+        clkslp 1280, 900, 2000
+        clkslp 1085, 720, 1000
+        clkslp 1085, 720, 1000
+        clkslp 1480, 720, 1000
+        clkslp 1480, 720, 1000
+        clkslp 1284, 1337, 1000
+        send "{Esc}"
         slprand 1000
-        clkrand 1280, 120
     }
 }
 
