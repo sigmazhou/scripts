@@ -25,7 +25,9 @@ loop{
 }
 
 PgUp::
+{
 steampaymentprotection
+}
 
 PgDn::
 {
