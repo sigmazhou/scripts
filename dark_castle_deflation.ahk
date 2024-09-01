@@ -7,6 +7,7 @@ SetWorkingDir A_ScriptDir  ; Ensures a consistent starting directory.
 ; make sure have auto next round on
 Home::
 {
+SetTimer steampaymentprotection, 1000
 loop{
     startmap
     placeboatsv2
@@ -24,9 +25,7 @@ loop{
 }
 
 PgUp::
-{   
-detecttotemeventscreen
-}
+steampaymentprotection
 
 PgDn::
 {
@@ -209,11 +208,20 @@ detecttotemeventscreen(){
         clkslp 1085, 720, 1000
         clkslp 1480, 720, 1000
         clkslp 1480, 720, 1000
-        clkslp 1284, 1337, 1000
+        clkslp 1284, 1337, 2000
         send "{Esc}"
         slprand 1000
     }
 }
+
+steampaymentprotection(){
+    if ImageSearch(&x, &y, 1685,300,1954,400, "./steam_icon_in_game_overlay_2560_1440.png")
+    {
+        Msgbox "Payment detected"
+        Reload
+    }
+}
+
 
 ^+`::
 End::Reload
