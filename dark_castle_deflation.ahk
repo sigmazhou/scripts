@@ -26,7 +26,7 @@ loop{
 
 PgUp::
 {
-steampaymentprotection
+detecttotemeventscreen
 }
 
 PgDn::
@@ -187,9 +187,8 @@ placeboatsexp(){
 
 
 endround(){
-    clkslp 1270, 1200
-    clkslp 957, 1140
-    slprand 2000
+    clkslp 1270, 1200, 1000
+    clkslp 957, 1140, 2000
 }
 
 
@@ -203,14 +202,14 @@ detectlvlupscreen(){
 
 
 detecttotemeventscreen(){
-    if PixelSearch(&posx,&posy,1275,775,1285,785,0x00a1ff,0)
+    if PixelSearch(&posx,&posy,1275,775,1285,785,0x00a1ff,1)
     {
         clkslp 1280, 900, 2000
         clkslp 1085, 720, 1000
         clkslp 1085, 720, 1000
         clkslp 1480, 720, 1000
         clkslp 1480, 720, 1000
-        clkslp 1284, 1337, 2000
+        clkslp 1284, 1337, 1500
         send "{Esc}"
         slprand 1000
     }
