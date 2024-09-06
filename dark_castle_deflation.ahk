@@ -11,7 +11,7 @@ SetTimer steampaymentprotection, 1000
 loop{
     startmap
     placeboatsv2
-    placeboatsexp
+    placeboatsexpv2
     startgame
     
     SetTimer detectlvlupscreen, 6000
@@ -26,7 +26,8 @@ loop{
 
 PgUp::
 {
-detecttotemeventscreen
+    placeboatsv2
+    placeboatsexpv2
 }
 
 PgDn::
@@ -130,8 +131,6 @@ placeboats(){
     lvlup 1,3,0     ;bt3
 }
 
-
-
 placeboatsv2(){
     ;5.6*60*1000, possibly 5.5
     loop 14
@@ -183,6 +182,29 @@ placeboatsexp(){
     lvlup 0,0,3
     clkslp 1452, 923    ;submarine
     lvlup 2,0,1
+}
+
+placeboatsexpv2(){
+    yoff:=Random(0,5)
+    clkslp 2446, 1166
+    clkslp 1332, 900,,0,yoff     ;bm
+    clkslp 2278, 1166
+    clkslp 1215, 900,,0,yoff     ;eng
+    clkslp 2290, 280
+    clkslp 1050, 934,,0,yoff     ;mortar
+    loop 14
+        wheelupslp
+    clkslp 2437, 481
+    clkslp 1329, 1000,,0,yoff     ;pao
+    
+    clkslp 1332, 900    ;bm
+    lvlup 0,2,3
+    clkslp 1215, 900    ;eng
+    lvlup 3,0,2
+    clkslp 1050, 934    ;mortar
+    lvlup 0,0,2
+    clkslp 1329, 1000    ;pao
+    lvlup 0,0,2
 }
 
 
