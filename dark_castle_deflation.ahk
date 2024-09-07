@@ -11,7 +11,7 @@ SetTimer steampaymentprotection, 1000
 loop{
     startmap
     placeboatsv2 false
-    ;placeboatsexpv2
+    ;placeboatsexp
     startgame
     
     SetTimer detectlvlupscreen, 6000
@@ -240,7 +240,7 @@ detecttotemeventscreen(){
 }
 
 steampaymentprotection(){
-    if ImageSearch(&x, &y, 1685,300,1954,400, "./steam_icon_in_game_overlay_2560_1440.png")
+    if ImageSearch(&x, &y, 1685,300,1954,400, "./steam_icon_in_game_overlay_3840_2160.png") or ImageSearch(&x, &y, 1566,300,1724,350, "./steam_icon_in_game_overlay_2560_1440.png")
     {
         Msgbox "Payment detected"
         Reload
