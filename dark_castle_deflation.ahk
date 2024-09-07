@@ -10,8 +10,8 @@ Home::
 SetTimer steampaymentprotection, 1000
 loop{
     startmap
-    placeboatsv2
-    placeboatsexpv2
+    placeboatsv2 false
+    ;placeboatsexpv2
     startgame
     
     SetTimer detectlvlupscreen, 6000
@@ -131,7 +131,7 @@ placeboats(){
     lvlup 1,3,0     ;bt3
 }
 
-placeboatsv2(){
+placeboatsv2(sellvillage:=true){
     ;5.6*60*1000, possibly 5.5
     loop 14
         wheeldownslp
@@ -156,8 +156,10 @@ placeboatsv2(){
     clkslp 1074, 520
     lvlup 4,0,0     ;alchem
     
-    clkslp 1310, 577
-    clkslp 450, 1211    ;sell village
+    if sellvillage{
+        clkslp 1310, 577
+        clkslp 450, 1211    ;sell village
+    }
 }
 
 
