@@ -34,7 +34,8 @@ loop{
 
 PgUp::
 {
-    msgbox W H
+    getwinsize
+    steampaymentprotection
 }
 
 PgDn::
@@ -266,7 +267,8 @@ detecttotemeventscreen(){
 }
 
 steampaymentprotection(){
-    if ImageSearch(&x, &y, 1685,300,1954,400, "./steam_icon_in_game_overlay_3840_2160.png") or ImageSearch(&x, &y, 1566,300,1724,350, "./steam_icon_in_game_overlay_2560_1440.png")
+    if ImageSearch(&x, &y, 0.6*W,0.2*H,0.85*W,0.45*H, "*48 ./steam_icon_in_game_overlay_3840_2160.png") 
+        or ImageSearch(&x, &y, 0.6*W,0.2*H,0.85*W,0.45*H, "*48 ./steam_icon_in_game_overlay_2560_1440.png")
     {
         Msgbox "Payment detected"
         Reload
