@@ -4,9 +4,17 @@
 SendMode "Input"  ; Recommended for new scripts due to its superior speed and reliability.
 SetWorkingDir A_ScriptDir  ; Ensures a consistent starting directory.
 
+W:=2560
+H:=1440
+default_click_off:=20
+default_sleep_off:=20
+getwinsize
+
+
 ; make sure have auto next round on
 Home::
 {
+getwinsize
 SetTimer steampaymentprotection, 1000
 loop{
     startmap
@@ -26,31 +34,44 @@ loop{
 
 PgUp::
 {
-    placeboatsv2
-    placeboatsexpv2
+    msgbox W H
 }
 
 PgDn::
 {
+getwinsize
 MouseGetPos &xpos, &ypos 
-MsgBox "The cursor is at X" xpos " Y" ypos " color" PixelGetColor(xpos,ypos)
+MsgBox "The cursor is at X " xpos " Y " ypos "`nrelpos X " Format("{1:0.4f}", xpos/W) " Y " Format("{1:0.4f}", ypos/H) "`ncolor " PixelGetColor(xpos,ypos)
 }
 
 test(){
 Msgbox 1
 }
 
+getwinsize(){
+    global W,H,default_click_off
+    if WinExist("BloonsTD6")
+    {
+        WinGetClientPos ,, &W, &H, "BloonsTD6"
+        default_click_off:=min(20, W/128)
+    }
+}
+
 clkrand(x,y,btn:="Left", xoff?, yoff?)
 {
+    if x<=1
+        x:=x*W
+    if y<=1
+        y:=y*H
     if !isset(xoff)
-        xoff := Random(-20,20)
+        xoff := Random(-default_click_off,default_click_off)
     if !isset(yoff)
-        yoff := Random(-20,20)
+        yoff := Random(-default_click_off,default_click_off)
     Click x+xoff, y+yoff, btn
 }
 
 slprand(ms){
-    off := Random(-20,20)
+    off := Random(-default_sleep_off,default_sleep_off)
     Sleep ms+off
 }
 
@@ -59,51 +80,57 @@ clkslp(x,y,ms:=500, xoff?, yoff?){
     slprand ms
 }
 
+keyslp(keyseq,ms:=500){
+    send keyseq
+    slprand ms
+}
 
-wheeldownslp(x:=2400,y:=800,ms:=100){
+
+wheeldownslp(x:=0.92,y:=0.5,ms:=100){
     clkrand x,y,"WD"
     slprand ms
 }
 
-wheelupslp(x:=2400,y:=800,ms:=100){
+wheelupslp(x:=0.92,y:=0.5,ms:=100){
     clkrand x,y,"WU"
     slprand ms
 }
 
 startmap(){
-    clkslp 1100, 1300
-    clkslp 1800, 1300
-    clkslp 1800, 1300
-    clkslp 800, 800
-    clkslp 800, 660
-    clkslp 1700, 600
+    clkslp 0.43, 0.87
+    clkslp 0.7, 0.9
+    clkslp 0.7, 0.9
+    clkslp 0.28, 0.53
+    clkslp 0.33, 0.44
+    clkslp 0.67, 0.43
     
     ; skip rule intro
-    slprand 3000
-    clkrand 1240, 1000
+    slprand 3200
+    clkrand 0.5, 0.7
     slprand 1200
 }
 
 lvlup(s1:=0, s2:=0, s3:=0, lr:="L"){
     if lr="L"
-        x:=450
+        x:=0.17
     else
-        x:=2070
+        x:=0.81
     loop s1
-        clkslp x,657,200
+        clkslp x,0.45,200
     loop s2
-        clkslp x,864,200
+        clkslp x,0.59,200
     loop s3
-        clkslp x,1040,200
+        clkslp x,0.73,200
 }
 
 startgame(){
-    clkslp 2450, 1360
-    clkslp 2450, 1360
+    keyslp "{Space}"
+    keyslp "{Space}"
 }
 
 
 placeboats(){
+    ;unmigrated
     ;5.7*60*1000
     loop 14
         wheeldownslp
@@ -135,30 +162,30 @@ placeboatsv2(sellvillage:=true){
     ;5.6*60*1000, possibly 5.5
     loop 14
         wheeldownslp
-    yoff:=Random(-5,0)
-    clkslp 2450, 960
-    clkslp 1310, 577,,0,yoff    ;village
+    yoff:=Random(-default_click_off/4,0)
+    clkslp 0.95, 0.69
+    clkslp 0.512, 0.4,,0,yoff    ;village
     
-    clkslp 1310, 577
+    clkslp 0.512, 0.4
     lvlup 0,0,2     ;vlg
 
-    clkslp 2281, 632
-    clkslp 1075, 598,,0,yoff     ;ninja
-    clkslp 2281, 456
-    clkslp 1171, 597,,0,yoff     ;wizard
-    clkslp 2437, 636
-    clkslp 1074, 520,,0,yoff     ;alchem
+    clkslp 0.89, 0.44
+    clkslp 0.42, 0.415,,0,yoff     ;ninja
+    clkslp 0.89, 0.32
+    clkslp 0.458, 0.414,,0,yoff     ;wizard
+    clkslp 0.95, 0.44
+    clkslp 0.42, 0.36,,0,yoff     ;alchem
 
-    clkslp 1171, 597
+    clkslp 0.458, 0.414
     lvlup 0,3,2     ;wizard
-    clkslp 1075, 598
+    clkslp 0.42, 0.415
     lvlup 4,0,2     ;ninja
-    clkslp 1074, 520
+    clkslp 0.42, 0.36
     lvlup 4,0,0     ;alchem
     
     if sellvillage{
-        clkslp 1310, 577
-        clkslp 450, 1211    ;sell village
+        clkslp 0.512, 0.4
+        keyslp "{Backspace}"
     }
 }
 
@@ -217,25 +244,24 @@ endround(){
 
 
 detectlvlupscreen(){
-    if PixelSearch(&posx,&posy,1240,600,1320,667,0xffffff,1)
+    if PixelSearch(&posx,&posy,0.48*W,0.42*H,0.52*W,0.58*H,0xffffff,1)
     {
-        clkslp 1280, 120, 1000
-        clkslp 1280, 120, 1000
+        clkslp 0.5, 0.1, 1000
+        clkslp 0.5, 0.1, 1000
     }
 }
 
 
 detecttotemeventscreen(){
-    if PixelSearch(&posx,&posy,1275,775,1285,785,0x00a1ff,1)
+    if PixelSearch(&posx,&posy,0.498*W,0.538*H,0.502*W,0.546*H,0x00a1ff,1)
     {
-        clkslp 1280, 900, 2000
-        clkslp 1085, 720, 1000
-        clkslp 1085, 720, 1000
-        clkslp 1480, 720, 1000
-        clkslp 1480, 720, 1000
-        clkslp 1284, 1337, 1500
-        send "{Esc}"
-        slprand 1000
+        clkslp 0.5, 0.625, 2000
+        clkslp 0.424, 0.5, 1000
+        clkslp 0.424, 0.5, 1000
+        clkslp 0.578, 0.5, 1000
+        clkslp 0.578, 0.5, 1000
+        clkslp 0.5, 0.929, 1500
+        keyslp "{Esc}", 1000
     }
 }
 
