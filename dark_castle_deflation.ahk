@@ -64,6 +64,13 @@ clkrand(x,y,btn:="Left", xoff?, yoff?)
     {
         Msgbox "click pos oob"
         reload
+        return
+    }
+    if not winActive("BloonsTD6")
+    {
+        Msgbox "win inactive"
+        reload
+        return
     }
     if x<=1
         x:=x*W
