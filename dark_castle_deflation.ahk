@@ -239,8 +239,8 @@ placeboatsexpv2(){
 
 
 endround(){
-    clkslp 1270, 1200, 1000
-    clkslp 957, 1140, 2000
+    clkslp 0.5, 0.84, 1000
+    clkslp 0.375, 0.79, 2000
 }
 
 
