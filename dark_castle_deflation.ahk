@@ -257,7 +257,7 @@ endround(){
 
 
 detectlvlupscreen(){
-    if PixelSearch(&posx,&posy,0.48*W,0.42*H,0.52*W,0.58*H,0xffffff,1)
+    if PixelSearch(&posx,&posy,0.484*W,0.416*H,0.516*W,0.464*H,0xffffff,1)  ; 1240,600,1320,667
     {
         clkslp 0.5, 0.1, 1000
         clkslp 0.5, 0.1, 1000
@@ -266,7 +266,7 @@ detectlvlupscreen(){
 
 
 detecttotemeventscreen(){
-    if PixelSearch(&posx,&posy,0.498*W,0.538*H,0.502*W,0.546*H,0x00a1ff,1)
+    if PixelSearch(&posx,&posy,0.498*W,0.538*H,0.502*W,0.546*H,0x00a1ff,1)  ; 1275,775,1285,785
     {
         clkslp 0.5, 0.625, 2000
         clkslp 0.424, 0.5, 1000
