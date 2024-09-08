@@ -60,6 +60,11 @@ getwinsize(){
 
 clkrand(x,y,btn:="Left", xoff?, yoff?)
 {
+    if x>W or y>H or x<0 or y<0
+    {
+        Msgbox "click pos oob"
+        reload
+    }
     if x<=1
         x:=x*W
     if y<=1
