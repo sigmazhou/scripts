@@ -118,7 +118,7 @@ startmap(){
     clkslp 0.67, 0.43
     
     ; skip rule intro
-    slprand 3200
+    slprand 3500
     clkrand 0.5, 0.7
     slprand 1200
 }
