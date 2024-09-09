@@ -35,7 +35,7 @@ loop{
 PgUp::
 {
     getwinsize
-    steampaymentprotection
+    detecttotemeventscreen
 }
 
 PgDn::
@@ -266,14 +266,24 @@ detectlvlupscreen(){
 
 
 detecttotemeventscreen(){
-    if PixelSearch(&posx,&posy,0.498*W,0.538*H,0.502*W,0.546*H,0x00a1ff,1)  ; 1275,775,1285,785
+    if PixelSearch(&posx,&posy,0.498*W,0.538*H,0.502*W,0.546*H,0x00a1ff,1)  ; 1275,775,1285,785     0.498*W,0.538*H,0.502*W,0.544*H,0x00a2ff
     {
-        clkslp 0.5, 0.625, 2000
-        clkslp 0.424, 0.5, 1000
-        clkslp 0.424, 0.5, 1000
-        clkslp 0.578, 0.5, 1000
-        clkslp 0.578, 0.5, 1000
-        clkslp 0.5, 0.929, 1500
+        clkslp 0.5, 0.627, 2000
+
+        ; 2 crates
+        clkslp 0.425, 0.5, 1000
+        clkslp 0.425, 0.5, 1000
+        clkslp 0.575, 0.5, 1000
+        clkslp 0.575, 0.5, 1000
+        ; 3 crates
+        clkslp 0.345, 0.5, 1000
+        clkslp 0.345, 0.5, 1000
+        clkslp 0.5, 0.5, 1000
+        clkslp 0.5, 0.5, 1000
+        clkslp 0.655, 0.5, 1000
+        clkslp 0.655, 0.5, 1000
+
+        clkslp 0.5, 0.927, 1500
         keyslp "{Esc}", 1000
     }
 }
