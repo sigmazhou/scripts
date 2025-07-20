@@ -1,10 +1,11 @@
 #Requires AutoHotkey v2.0
 SendMode "Input"
+#Warn All, Off
 SetDefaultMouseSpeed 0
 
 ; 获取间隔参数（单位：毫秒），默认 1000
-interval := 820
-interval_same_cast := 820
+interval := 850
+interval_same_cast := 850
 if A_Args.Length >= 1 {
     try interval := Integer(A_Args[1])
     catch {
@@ -12,6 +13,8 @@ if A_Args.Length >= 1 {
         interval := 1000
     }
 }
+
+respawn := 1240 ; 1410 ;1240
 
 ; 配置需要输入的序列（在此修改内容）
 avsp_sequence := "fhgytrewaw edtwewwxay trsewwdetw weagyetr"
@@ -21,18 +24,36 @@ mega_sequence := "zfhgytrewa wedtwezwxa ytrsewwdet wzeagyetr"
 
 bdw_sequence := "zfhgytrewd wewtaexwzw ytrsadwewt wzewgaytre dwwe"
 
-sequence := bdw_sequence
+;e 4
+;r 14
+;t 8
+;y 14
+;a 9
+;sfh 41
+;d 14
+;g 27 
+;z 14
+;x 32
+t6v1_sequence := "wfhyztewwre awtdegyzew tsreaxwetd wyzewwatew r"
+t8v1_sequence := "fhytaewzret w.2egaydxezt .2eaw.2ecsyrda twz.4we.2www.3fh teacrdzgyt"
+t8v1_sequence_v2 := "fhytaewzret w.2egaydxezt .2eaw.2ecsyrdt wae.4wz.2w.2fhte acrdzgyt"
 
+sequence := t8v1_sequence_v2
+
+atk_prio_farm := "zfgyterdw"
 atk_prio := "zfgytredaxw"
+balanced_prio := "zfgytrdaexw"
 def_prio := "zfgyrdaxtew"
-prio_sequence := atk_prio
+prio_sequence := atk_prio_farm
+
+def_buff_gap_ms := 19000
 
 ; target boss color loc and rgb
 color_loc_x := 1870
 color_loc_y := 1252
 color_rgb := 0x8e70c1
 
-last_hit_x := 2270
+last_hit_percentile := 0.25
 
 ; manual edit ends here
 count := 0
@@ -42,6 +63,11 @@ H := 1800
 W_base := 2880
 H_base := 1800
 win_title := "NGU Idle"
+def_buff_timer_ms := 0
+
+hp_bar_left := 2203
+hp_bar_right := 2800
+last_hit_x := 2203 * (1-last_hit_percentile) + 2800 * last_hit_percentile
 
 getwinsize
 
@@ -50,13 +76,16 @@ getwinsize
 `::Reload
 
 End::{
-    play_prio(True)
+    Send "{Right}"
+    Sleep 300
+    play_sequence
 }
 
 Down::{
     checkactive
     global running:=false
-
+    
+    ;switchdcdigger
     switchdcloadout
     
     global count
@@ -74,9 +103,23 @@ PgUp::{
 }
 
 Up::{
+    auto_regular
+}
+
+Insert::{
+    dc_last_hit := False
+    patched_play_prio := key_delay_fixture(2)(play_prio)
     Loop {
+        ;wait_till_spawn
         refresh_till_boss
-        key_delay_fixture(2)(play_prio)()
+        if dc_last_hit {
+            patched_play_prio(,True)
+            switchdcloadout
+            spam_last_hit
+            switchadvloadout
+        } else {
+            patched_play_prio(,False)
+        }
     }
     ;if isboss() and islasthit() {
         ;switchdcloadout
@@ -120,26 +163,40 @@ refresh_till_boss(){
             break
         }
         if hasenemy() and !isboss() {
-            keyslp "{Left}"
-            keyslp "{Right}"
-            keyslp "d"
+            keyslp "{Left}", 50
+            keyslp "{Right}", 50
+            send_key_prio("rdx")
             continue
         }
     }
 }
 
 
-idle_boss_only(){
+wait_till_spawn(){
+    Loop {
+        Sleep 200
+        if hasenemy(){
+            break
+        }
+        send_key_prio("rdx")
+    }
+}
+
+
+idle_boss_only(switch_dc:=False){
     ;idle boss only
     dcdigger := 0
     Loop {
         Sleep 200
         if hasenemy() and !isboss() {
-            keyslp "{Left}"
-            keyslp "{Right}"
+            keyslp "{Left}", 50
+            keyslp "{Right}", 50
+            keyslp "q", 20
+            keyslp "d", 20
+            keyslp "q", 20
             continue
         }
-        if isboss() and islasthit() and !dcdigger {
+        if switch_dc and isboss() and islasthit() and !dcdigger {
             switchdcloadout
             advtab
             dcdigger := 1
@@ -160,6 +217,8 @@ play_sequence(){
     running := true
     lastkey := ""
     
+    is_latency_input := false
+    
     checkactive
     getwinsize
     
@@ -170,28 +229,36 @@ play_sequence(){
         if (A_LoopField == " ") {
             continue
         }
+        if (A_LoopField == ".") {
+            is_latency_input := true
+            continue
+        }
+        if (is_latency_input) {
+            is_latency_input := false
+            Sleep A_LoopField*100
+            continue
+        }
         ; 发送当前字符（使用文本模式避免特殊符号问题）
-        send_key_flavored(A_LoopField)
+        Send A_LoopField
         count += 1
         tmp_intvl := interval
         if (A_LoopField == lastkey) {
             tmp_intvl := interval_same_cast
         }
         ; last hit check
-        if !hasenemy(){
-            break
-        }
+        ;if !hasenemy(){
+        ;    return
+        ;}
         
         Sleep tmp_intvl
         lastkey := A_LoopField
     }
 }
 
-play_prio(inf_loop:=False) {
+play_prio(inf_loop:=False, save_last_hit:=False) {
     global
     count := 0
     running := true
-    def_buff_timer_ms := 0
     
     checkactive
     getwinsize
@@ -202,19 +269,37 @@ play_prio(inf_loop:=False) {
         }
         ; 发送当前字符（使用文本模式避免特殊符号问题）
         tc_ms := A_TickCount
-        if (tc_ms - def_buff_timer_ms > 18000) {
-            send_key_prio("hs")
+        if (tc_ms - def_buff_timer_ms > def_buff_gap_ms) {
+            send_key_prio("hhs")
             def_buff_timer_ms := tc_ms
         } else {
             send_key_prio(prio_sequence)
         }
         count += 1
+        
+        Sleep 50
+        interval_remaining := interval-50
         ; last hit check
-        if !inf_loop and !hasenemy(){
-            break
+        if !inf_loop and ((!save_last_hit and !hasenemy()) or (save_last_hit and islasthit())){
+            return
         }
 
-        Sleep interval
+        Sleep interval_remaining
+    }
+}
+
+auto_regular() {
+    global
+    running := true
+
+    checkactive
+    getwinsize
+    
+    Loop {
+        if !running {
+            break
+        }
+        keyslp "w", respawn
     }
 }
 
@@ -244,10 +329,8 @@ send_key_flavored(key) {
 }
 
 spam_last_hit() {
-    while isboss() {
-        Send "t"
-        Send "e"
-        Send "w"
+    while hasenemy() {
+        send_key_prio("tew")
         Sleep 100
     }
 }
@@ -334,7 +417,7 @@ istargetenemy(x, y, color){
 }
 
 hasenemy(){
-    c1 := PixelGetColor(2193*W/W_base,935*W/W_base,"RGB")   ;000000 ->Power
+    c1 := PixelGetColor(2193*W/W_base,1075*W/W_base,"RGB")   ;000000 ->Max HP/HP Regen
     if (c1 = 0x000000) {
         return True
     }
