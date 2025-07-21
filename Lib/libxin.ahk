@@ -1,11 +1,8 @@
 ; test helper
 PgUp::{
     ch:=ClickHelper()
-    ch.SaveClick("test", 120,120)
-    ch.SetSpread(,4)
-    
-    ch2:=ClickHelper()
-    msgbox ch2.timeSpreadDivider
+    ch.sc("test", [1637,683],,,[655,209],[2680,1129])
+    ch.cs("test")
 }
 `::Reload
 
@@ -17,15 +14,36 @@ ArrJoin( arr )
   return substr(s, 3)
 }
 
+ArrMap(f, arrs*){
+    minlen := PosInf
+    for arr in arrs {
+        minlen := Min(minlen, arr.Length)
+    }
+    if minlen=PosInf or minlen=0 {
+        return []
+    }
+    r := []
+    Loop minlen {
+        i := A_index
+        p := []
+        for arr in arrs {
+            p.Push(arr[i])
+        }
+        
+        r.Push(f(p*))
+    }
+    return r
+}
+
 SampleData(){
     a := Array()
     i := 200
     while i>0 {
         i:=i-1
-        a.push(SampleNormalDistributionBounded(5,5/3,5,,,False))
-        ;SampleBaseNormalDistribution()
+        ;a.push(SampleNormalDistributionBounded(5,5/3,5,,,False))
+        _NotInUse_SampleBaseNormalDistributionSumForm()
     } 
-    A_Clipboard := ArrJoin(a)
+    ;A_Clipboard := ArrJoin(a)
 }
 
 TimeIt(){
@@ -60,6 +78,15 @@ _NotInUse_SampleBaseNormalDistributionPolarForm(mean := 0, stddev := 1) {
     spare := v * mul
     hasBoxMuller := true
     return (u * mul) * stddev + mean
+}
+
+
+_NotInUse_SampleBaseNormalDistributionSumForm(mean := 0, stddev := 1) {
+    s := 0
+    Loop 6 {
+        s += Random()
+    }
+    return (s-3)*Sqrt(2)
 }
 
 SampleBaseNormalDistribution(){
@@ -105,8 +132,8 @@ Sample2DNormalDistributionBounded(mean:=[0,0], stddev:=[1,1], maxdev?, lower?, u
 class ClickHelper {
     scaleX := 1
     scaleY := 1
-    spaceSpreadDivider := 2.5   ; larger -> more center
-    timeSpreadDivider := 2.5
+    spaceSpreadDivider := 3   ; larger -> more center
+    timeSpreadDivider := 3
     savedClicks := Map()
 
     __New(windowWidth:=1, windowHeight?, setupWidth:=1, setupHeight?) {
@@ -121,32 +148,26 @@ class ClickHelper {
             this.timeSpreadDivider := timeSpreadDivider
         }
     }
-    SaveClick(label, x, y, btn:="Left", simpleOffset:=0, minx?, miny?, maxx?, maxy?, t:=0, simpleTimeOffset:=0, mint?, maxt?){
-        minx := minx?? x-simpleOffset
-        miny := miny?? y-simpleOffset
-        maxx := maxx?? x+simpleOffset
-        maxy := maxy?? y+simpleOffset
+    SaveClick(label, p, btn:="Left", simpleOffset:=0, minp?, maxp?, t:=0, simpleTimeOffset:=0, mint?, maxt?){
+        minp := minp?? [p[1]-simpleOffset, p[2]-simpleOffset]
+        maxp := maxp?? [p[1]+simpleOffset, p[2]+simpleOffset]
         mint := mint?? t-simpleTimeOffset
         maxt := maxt?? t+simpleTimeOffset
-        this.savedClicks[label]:=[x,y,btn,minx,miny,maxx,maxy,t,mint,maxt]
+        this.savedClicks[label]:=[p,btn,minp,maxp,t,mint,maxt]
     }
     _GetSaved(){
         return this.savedClicks
     }
     ClickSaved(label){
         p := this.savedClicks[label]
-        this.ClickRandomSleepRandom(p[1],p[2],p[3],,p[4],p[5],p[6],p[7],p[8],,p[9],p[10])
+        this.ClickRandomSleepRandom(p[1],p[2],,p[3],p[4],p[5],,p[6],p[7])
     }
-    ClickRandom(x, y, btn:="Left", simpleOffset:=0, minx?, miny?, maxx?, maxy?){
-        minx := minx?? x-simpleOffset
-        miny := miny?? y-simpleOffset
-        maxx := maxx?? x+simpleOffset
-        maxy := maxy?? y+simpleOffset
-        stddevX := Min(x-minx, maxx-x) / this.spaceSpreadDivider
-        stddevY := Min(y-miny, maxy-y) / this.spaceSpreadDivider
-        finalX := SampleNormalDistributionBounded(x, stddevX,, minx, maxx)
-        finalY := SampleNormalDistributionBounded(y, stddevY,, miny, maxy)
-        Click finalX*this.scaleX, finalY*this.scaleY, btn
+    ClickRandom(p, btn:="Left", simpleOffset:=0, minp?, maxp?){
+        minp := minp?? [p[1]-simpleOffset, p[2]-simpleOffset]
+        maxp := maxp?? [p[1]+simpleOffset, p[2]+simpleOffset]
+        stddevP := ArrMap((x,minx,maxx)=>Min(x-minx, maxx-x) / this.spaceSpreadDivider, p, minp, maxp)
+        finalP := Sample2DNormalDistributionBounded(p, stddevP,, minp, maxp)
+        Click finalP[1]*this.scaleX, finalP[2]*this.scaleY, btn
     }
     SleepRamdom(t, simpleOffset:=0, mint?, maxt?) {
         mint := mint?? t-simpleOffset
@@ -155,25 +176,25 @@ class ClickHelper {
         finalT := SampleNormalDistributionBounded(t, stddevT,, mint, maxt)
         Sleep finalT
     }
-    ClickRandomSleepRandom(x, y, btn:="Left", simpleOffset:=0, minx?, miny?, maxx?, maxy?, t:=0, simpleTimeOffset:=0, mint?, maxt?){
-        this.ClickRandom(x,y,btn,simpleOffset,minx?,miny?,maxx?,maxy?)
+    ClickRandomSleepRandom(p, btn:="Left", simpleOffset:=0, minp?, maxp?, t:=0, simpleTimeOffset:=0, mint?, maxt?){
+        this.ClickRandom(p,btn,simpleOffset,minp?,maxp?)
         if t>0 {
             this.SleepRamdom(t,simpleTimeOffset,mint?,maxt?)
         }
     }
-    sc(p*){
-        this.SaveClick(p*)
+    sc(a*){
+        this.SaveClick(a*)
     }
-    cs(p*){
-        this.ClickSaved(p*)
+    cs(a*){
+        this.ClickSaved(a*)
     }
-    cr(p*){
-        this.ClickRandom(p*)
+    cr(a*){
+        this.ClickRandom(a*)
     }
-    sr(p*){
-        this.SleepRamdom(p*)
+    sr(a*){
+        this.SleepRamdom(a*)
     }
-    crsr(p*){
-        this.ClickRandomSleepRandom(p*)
+    crsr(a*){
+        this.ClickRandomSleepRandom(a*)
     }
 }
