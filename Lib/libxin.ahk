@@ -1,16 +1,18 @@
 ; test helper
 PgUp::{
-    ch:=ClickHelper()
-    ch.sc("test", [1637,683],,,[655,209],[2680,1129])
-    ch.cs("test")
+    SampleClick
 }
 `::Reload
 
-ArrJoin( arr )
+ArrJoin( arr, bracket:="[]" )
 {
   s := ""
   for i,v in arr
-    s .= ", " . v
+    if Type(v)="Array" {
+        s .= ", " . substr(bracket,1,1) . ArrJoin(v, bracket) . substr(bracket,2,1)
+    } else {
+        s .= ", " . v
+    }
   return substr(s, 3)
 }
 
@@ -40,10 +42,35 @@ SampleData(){
     i := 200
     while i>0 {
         i:=i-1
-        ;a.push(SampleNormalDistributionBounded(5,5/3,5,,,False))
-        _NotInUse_SampleBaseNormalDistributionSumForm()
+        a.push(SampleNormalDistributionBounded(5,5/3,5,,,True))
+        ;_NotInUse_SampleBaseNormalDistributionSumForm()
     } 
-    ;A_Clipboard := ArrJoin(a)
+    A_Clipboard := ArrJoin(a)
+}
+
+SampleData2D(){
+    a := Array()
+    i := 200
+    while i>0 {
+        i:=i-1
+        a.push(Sample2DNormalDistributionBounded([5,5],[5/3,5/3],[5,5],,,True))
+        ;_NotInUse_SampleBaseNormalDistributionSumForm()
+    } 
+    A_Clipboard := ArrJoin(a, "{}")
+}
+
+
+SampleClick(){
+    ch:=ClickHelper()
+    ch.sc("test", [218,132],,,[113,118],[473,148])
+    ch.SetDryRun(1)
+    a := Array()
+    i := 200
+    Loop i {
+        a.push(ch.cs("test")[1])
+        ;_NotInUse_SampleBaseNormalDistributionSumForm()
+    } 
+    A_Clipboard := ArrJoin(a, "{}")
 }
 
 TimeIt(){
@@ -132,8 +159,9 @@ Sample2DNormalDistributionBounded(mean:=[0,0], stddev:=[1,1], maxdev?, lower?, u
 class ClickHelper {
     scaleX := 1
     scaleY := 1
-    spaceSpreadDivider := 3   ; larger -> more center
+    spaceSpreadDivider := 3   ; larger -> more center, smaller -> more spread
     timeSpreadDivider := 3
+    dryRun := False
     savedClicks := Map()
 
     __New(windowWidth:=1, windowHeight?, setupWidth:=1, setupHeight?) {
@@ -148,6 +176,9 @@ class ClickHelper {
             this.timeSpreadDivider := timeSpreadDivider
         }
     }
+    SetDryRun(dryRun) {
+        this.dryRun:=dryRun
+    }
     SaveClick(label, p, btn:="Left", simpleOffset:=0, minp?, maxp?, t:=0, simpleTimeOffset:=0, mint?, maxt?){
         minp := minp?? [p[1]-simpleOffset, p[2]-simpleOffset]
         maxp := maxp?? [p[1]+simpleOffset, p[2]+simpleOffset]
@@ -155,46 +186,54 @@ class ClickHelper {
         maxt := maxt?? t+simpleTimeOffset
         this.savedClicks[label]:=[p,btn,minp,maxp,t,mint,maxt]
     }
-    _GetSaved(){
-        return this.savedClicks
+    _GetSaved(label?){
+        return IsSet(label)? this.savedClicks[label]:this.savedClicks
     }
     ClickSaved(label){
         p := this.savedClicks[label]
-        this.ClickRandomSleepRandom(p[1],p[2],,p[3],p[4],p[5],,p[6],p[7])
+        return this.ClickRandomSleepRandom(p[1],p[2],,p[3],p[4],p[5],,p[6],p[7])
     }
     ClickRandom(p, btn:="Left", simpleOffset:=0, minp?, maxp?){
         minp := minp?? [p[1]-simpleOffset, p[2]-simpleOffset]
         maxp := maxp?? [p[1]+simpleOffset, p[2]+simpleOffset]
         stddevP := ArrMap((x,minx,maxx)=>Min(x-minx, maxx-x) / this.spaceSpreadDivider, p, minp, maxp)
         finalP := Sample2DNormalDistributionBounded(p, stddevP,, minp, maxp)
-        Click finalP[1]*this.scaleX, finalP[2]*this.scaleY, btn
+        if !this.dryRun {
+            Click finalP[1]*this.scaleX, finalP[2]*this.scaleY, btn
+        }
+        return finalP
     }
     SleepRamdom(t, simpleOffset:=0, mint?, maxt?) {
         mint := mint?? t-simpleOffset
         maxt := maxt?? t+simpleOffset
         stddevT := Min(t-mint, maxt-t) / this.timeSpreadDivider
         finalT := SampleNormalDistributionBounded(t, stddevT,, mint, maxt)
-        Sleep finalT
+        if !this.dryRun {
+            Sleep finalT
+        }
+        return finalT
     }
     ClickRandomSleepRandom(p, btn:="Left", simpleOffset:=0, minp?, maxp?, t:=0, simpleTimeOffset:=0, mint?, maxt?){
-        this.ClickRandom(p,btn,simpleOffset,minp?,maxp?)
+        retP := this.ClickRandom(p,btn,simpleOffset,minp?,maxp?)
+        retT := 0
         if t>0 {
-            this.SleepRamdom(t,simpleTimeOffset,mint?,maxt?)
+            retT := this.SleepRamdom(t,simpleTimeOffset,mint?,maxt?)
         }
+        return [retP, retT]
     }
     sc(a*){
-        this.SaveClick(a*)
+        return this.SaveClick(a*)
     }
     cs(a*){
-        this.ClickSaved(a*)
+        return this.ClickSaved(a*)
     }
     cr(a*){
-        this.ClickRandom(a*)
+        return this.ClickRandom(a*)
     }
     sr(a*){
-        this.SleepRamdom(a*)
+        return this.SleepRamdom(a*)
     }
     crsr(a*){
-        this.ClickRandomSleepRandom(a*)
+        return this.ClickRandomSleepRandom(a*)
     }
 }
