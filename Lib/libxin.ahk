@@ -116,19 +116,21 @@ class ClickHelper {
         this.scaleX := windowWidth/setupWidth
         this.scaleY := IsSet(setupHeight) && IsSet(windowHeight) ? windowHeight/setupHeight : this.scaleX
     }
-    SaveClick(label, x, y, btn:="Left", simpleOffset:=0, minx?, miny?, maxx?, maxy?, slp:=0){
+    SaveClick(label, x, y, btn:="Left", simpleOffset:=0, minx?, miny?, maxx?, maxy?, t:=0, simpleTimeOffset:=0, mint?, maxt?){
         minx := minx?? x-simpleOffset
         miny := miny?? y-simpleOffset
         maxx := maxx?? x+simpleOffset
         maxy := maxy?? y+simpleOffset
-        this.savedClicks[label]:=[x,y,btn,minx,miny,maxx,maxy]
+        mint := mint?? t-simpleOffset
+        maxt := maxt?? t+simpleOffset
+        this.savedClicks[label]:=[x,y,btn,minx,miny,maxx,maxy,t,mint,maxt]
     }
     _GetSaved(){
         return this.savedClicks
     }
     ClickSaved(label){
         p := this.savedClicks[label]
-        this.ClickRandom(p[1],p[2],p[3],,p[4],p[5],p[6],p[7])
+        this.ClickRandomSleepRandom(p[1],p[2],p[3],,p[4],p[5],p[6],p[7],p[8],,p[9],p[10])
     }
     ClickRandom(x, y, btn:="Left", simpleOffset:=0, minx?, miny?, maxx?, maxy?){
         minx := minx?? x-simpleOffset
@@ -143,7 +145,9 @@ class ClickHelper {
     }
     ClickRandomSleepRandom(x, y, btn:="Left", simpleOffset:=0, minx?, miny?, maxx?, maxy?, t:=0, simpleTimeOffset:=0, mint?, maxt?){
         this.ClickRandom(x,y,btn,simpleOffset,minx?,miny?,maxx?,maxy?)
-        SleepRamdom(t,simpleTimeOffset,mint?,maxt?)
+        if t>0 {
+            SleepRamdom(t,simpleTimeOffset,mint?,maxt?)
+        }
     }
     sc(p*){
         this.SaveClick(p*)
