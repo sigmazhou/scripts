@@ -126,8 +126,8 @@ class ClickHelper {
         miny := miny?? y-simpleOffset
         maxx := maxx?? x+simpleOffset
         maxy := maxy?? y+simpleOffset
-        mint := mint?? t-simpleOffset
-        maxt := maxt?? t+simpleOffset
+        mint := mint?? t-simpleTimeOffset
+        maxt := maxt?? t+simpleTimeOffset
         this.savedClicks[label]:=[x,y,btn,minx,miny,maxx,maxy,t,mint,maxt]
     }
     _GetSaved(){
@@ -169,6 +169,9 @@ class ClickHelper {
     }
     cr(p*){
         this.ClickRandom(p*)
+    }
+    sr(p*){
+        this.SleepRamdom(p*)
     }
     crsr(p*){
         this.ClickRandomSleepRandom(p*)
