@@ -16,27 +16,6 @@ ArrJoin( arr, bracket:="[]" )
   return substr(s, 3)
 }
 
-ArrMap(f, arrs*){
-    minlen := PosInf
-    for arr in arrs {
-        minlen := Min(minlen, arr.Length)
-    }
-    if minlen=PosInf or minlen=0 {
-        return []
-    }
-    r := []
-    Loop minlen {
-        i := A_index
-        p := []
-        for arr in arrs {
-            p.Push(arr[i])
-        }
-        
-        r.Push(f(p*))
-    }
-    return r
-}
-
 SampleData(){
     a := Array()
     i := 200
@@ -86,6 +65,27 @@ TimeIt(){
 Pi := ACos(-1)
 NegInf := -2e308
 PosInf := 2e308
+
+ArrMap(f, arrs*){
+    minlen := PosInf
+    for arr in arrs {
+        minlen := Min(minlen, arr.Length)
+    }
+    if minlen=PosInf or minlen=0 {
+        return []
+    }
+    r := []
+    Loop minlen {
+        i := A_index
+        p := []
+        for arr in arrs {
+            p.Push(arr[i])
+        }
+        
+        r.Push(f(p*))
+    }
+    return r
+}
 
 _NotInUse_SampleBaseNormalDistributionPolarForm(mean := 0, stddev := 1) {
     ; slower, kept for reference
