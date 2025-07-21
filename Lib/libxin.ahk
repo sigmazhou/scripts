@@ -2,7 +2,10 @@
 PgUp::{
     ch:=ClickHelper()
     ch.SaveClick("test", 120,120)
-    ch.ClickSaved("test")
+    ch.SetSpread(,4)
+    
+    ch2:=ClickHelper()
+    msgbox ch2.timeSpreadDivider
 }
 `::Reload
 
@@ -99,22 +102,24 @@ Sample2DNormalDistributionBounded(mean:=[0,0], stddev:=[1,1], maxdev?, lower?, u
     return [x,y]
 }
 
-SleepRamdom(t, simpleOffset:=0, mint?, maxt?) {
-    mint := mint?? t-simpleOffset
-    maxt := maxt?? t+simpleOffset
-    stddevT := Min(t-mint, maxt-t) / 3
-    finalT := SampleNormalDistributionBounded(t, stddevT,, mint, maxt)
-    Sleep finalT
-}
-
 class ClickHelper {
     scaleX := 1
     scaleY := 1
+    spaceSpreadDivider := 2.5   ; larger -> more center
+    timeSpreadDivider := 2.5
     savedClicks := Map()
 
     __New(windowWidth:=1, windowHeight?, setupWidth:=1, setupHeight?) {
         this.scaleX := windowWidth/setupWidth
         this.scaleY := IsSet(setupHeight) && IsSet(windowHeight) ? windowHeight/setupHeight : this.scaleX
+    }
+    SetSpread(spaceSpreadDivider?, timeSpreadDivider?) {
+        if IsSet(spaceSpreadDivider) {
+            this.spaceSpreadDivider := spaceSpreadDivider
+        }
+        if IsSet(timeSpreadDivider) {
+            this.timeSpreadDivider := timeSpreadDivider
+        }
     }
     SaveClick(label, x, y, btn:="Left", simpleOffset:=0, minx?, miny?, maxx?, maxy?, t:=0, simpleTimeOffset:=0, mint?, maxt?){
         minx := minx?? x-simpleOffset
@@ -137,16 +142,23 @@ class ClickHelper {
         miny := miny?? y-simpleOffset
         maxx := maxx?? x+simpleOffset
         maxy := maxy?? y+simpleOffset
-        stddevX := Min(x-minx, maxx-x) / 3
-        stddevY := Min(y-miny, maxy-y) / 3
+        stddevX := Min(x-minx, maxx-x) / this.spaceSpreadDivider
+        stddevY := Min(y-miny, maxy-y) / this.spaceSpreadDivider
         finalX := SampleNormalDistributionBounded(x, stddevX,, minx, maxx)
         finalY := SampleNormalDistributionBounded(y, stddevY,, miny, maxy)
         Click finalX*this.scaleX, finalY*this.scaleY, btn
     }
+    SleepRamdom(t, simpleOffset:=0, mint?, maxt?) {
+        mint := mint?? t-simpleOffset
+        maxt := maxt?? t+simpleOffset
+        stddevT := Min(t-mint, maxt-t) / this.timeSpreadDivider
+        finalT := SampleNormalDistributionBounded(t, stddevT,, mint, maxt)
+        Sleep finalT
+    }
     ClickRandomSleepRandom(x, y, btn:="Left", simpleOffset:=0, minx?, miny?, maxx?, maxy?, t:=0, simpleTimeOffset:=0, mint?, maxt?){
         this.ClickRandom(x,y,btn,simpleOffset,minx?,miny?,maxx?,maxy?)
         if t>0 {
-            SleepRamdom(t,simpleTimeOffset,mint?,maxt?)
+            this.SleepRamdom(t,simpleTimeOffset,mint?,maxt?)
         }
     }
     sc(p*){
