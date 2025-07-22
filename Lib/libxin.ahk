@@ -1,24 +1,14 @@
 ; test helper
-PgUp::{
-    ch:=ClickHelper()
-    ch.sc("test", [120,120], {options:["fixedOffset"]})
-    ch.SetDryRun(1)
-    ch.RandomizeFixedOffset(20)
-    msgbox arrjoin(ch.cs("test"))
-    msgbox arrjoin(ch.cs("test"))
-}
-`::Reload
-
 ArrJoin( arr, bracket:="[]" )
 {
   s := ""
   for i,v in arr
     if Type(v)="Array" {
-        s .= ", " . substr(bracket,1,1) . ArrJoin(v, bracket) . substr(bracket,2,1)
+        s .= ", " . ArrJoin(v, bracket)
     } else {
         s .= ", " . v
-    }
-  return substr(s, 3)
+    } 
+  return substr(bracket,1,1) . substr(s, 3) . substr(bracket,2,1)
 }
 
 SampleData(){
@@ -282,6 +272,16 @@ class ClickHelper {
         }
         return [retP, retT]
     }
+    ExecutePlan(plan){
+        for i, step in plan {
+            if step is Array {
+                i := Random(1, step.Length)
+                this.ClickSaved(step[i])
+            } else {
+                this.ClickSaved(step)
+            }
+        }
+    }
     sc(a*){
         return this.SaveClick(a*)
     }
@@ -297,4 +297,17 @@ class ClickHelper {
     crsr(a*){
         return this.ClickRandomSleepRandom(a*)
     }
+}
+
+class InputScheduler{
+    
+}
+
+GetWinSize(winTitle){
+    W:=0,H:=0
+    if WinExist(winTitle)
+    {
+        WinGetClientPos ,, &W, &H, winTitle
+    }
+    return [W,H]
 }
