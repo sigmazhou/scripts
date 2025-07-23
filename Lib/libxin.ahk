@@ -62,9 +62,12 @@ NegInf := -2e308
 PosInf := 2e308
 
 ArrMap(f, arrs*){
+    ; arr can be either array or simple item
     minlen := PosInf
     for arr in arrs {
-        minlen := Min(minlen, arr.Length)
+        if arr is Array {
+            minlen := Min(minlen, arr.Length)
+        }
     }
     if minlen=PosInf or minlen=0 {
         return []
@@ -74,7 +77,11 @@ ArrMap(f, arrs*){
         i := A_index
         p := []
         for arr in arrs {
-            p.Push(arr[i])
+            if arr is Array {
+                p.Push(arr[i])
+            } else {
+                p.Push(arr)
+            }
         }
         
         r.Push(f(p*))
@@ -95,7 +102,7 @@ ArrEq(arr1, arr2) {
     return True
 }
 
-ArrSum(arr) {
+Sum(arr) {
     s:=0
     for i,x in arr {
         s += x
@@ -103,15 +110,48 @@ ArrSum(arr) {
     return s
 }
 
-ArrAdd(arrs*) {
-    return ArrMap((x*)=>ArrSum(x), arrs*)
+Mul(arr) {
+    s:=1
+    for i,x in arr {
+        s *= x
+    }
+    return s
 }
+
+ArrAdd(arrs*) {
+    return ArrMap((x*)=>Sum(x), arrs*)
+}
+
+ArrSub(arr, arrOrNum) {
+    return ArrMap((x,y)=>x-y, arr, arrOrNum)
+}
+
+ArrNeg(arr) {
+    return ArrMap((x)=>-x, arr)
+}
+
+ArrMul(arrs*) {
+    return ArrMap((x*)=>Mul(x), arrs*)
+}
+
+ArrDivBy(arr, arrOrNum) {
+    return ArrMap((x,y)=>x/y, arr, arrOrNum)
+}
+
 
 ArrContains(arr, val) {
     for x in arr
         if x == val
             return True
     return False
+}
+
+DistanceOf(p1, p2) {
+    return Sqrt((p2[1]-p1[1])**2+(p2[2]-p1[2])**2)
+}
+
+MiddlePointWeighted(p1, p2, percentile) {
+    return ArrAdd(ArrMul(p2, percentile), ArrMul(p1, 1-percentile))
 }
 
 _NotInUse_SampleBaseNormalDistributionPolarForm(mean := 0, stddev := 1) {
@@ -181,6 +221,74 @@ Sample2DNormalDistributionBounded(mean:=[0,0], stddev:=[1,1], maxdev?, lower?, u
     x := SampleNormalDistributionBounded(mean[1], stddev[1], IsSet(maxdev)?maxdev[1]:unset, IsSet(lower)?lower[1]:unset, IsSet(upper)?upper[1]:unset, randomWhenBounded)
     y := SampleNormalDistributionBounded(mean[2], stddev[2], IsSet(maxdev)?maxdev[2]:unset, IsSet(lower)?lower[2]:unset, IsSet(upper)?upper[2]:unset, randomWhenBounded)
     return [x,y]
+}
+
+
+SimulatedMouseMove(targetP) {
+    MouseGetPos(&startX, &startY)
+    path := GenerateBezierPath([startX, startY], targetP, 50)
+    _SimulatedMove(path, 150)
+}
+
+GenerateBezierPath(startP, endP, numPoints) {
+    dist := DistanceOf(startP, endP)
+    ctrlP := ArrAdd(MiddlePointWeighted(startP, endP, Random(0.3, 0.7))
+        , Sample2DNormalDistributionBounded([0,0], [dist/12, dist/12], [dist/4, dist/4]))
+
+    path := []
+    Loop numPoints {
+        t := A_Index / numPoints
+        x := (1-t)**2 * startP[1] + 2*(1-t)*t * ctrlP[1] + t**2 * endP[1]
+        y := (1-t)**2 * startP[2] + 2*(1-t)*t * ctrlP[2] + t**2 * endP[2]
+        p := ArrAdd([x,y], 
+            Sample2DNormalDistributionBounded([0,0], [dist/numPoints/9, dist/numPoints/9], [dist/numPoints/3, dist/numPoints/3]))
+        path.Push(p)
+    }
+    path.Push(endP)
+    return path
+}
+
+_SimulatedMove(path, duration, easingType?) {
+    totalPoints := path.Length
+    startTime := A_TickCount
+    
+    While 1 {
+        elapsed := A_TickCount - startTime
+        progress := Min(elapsed / duration, 1.0)
+        
+        t := ApplyEasing(progress, easingType?)
+        
+        currentIndex := Floor(t * (totalPoints - 1)) + 1
+        nextIndex := Min(currentIndex + 1, totalPoints)
+        
+        segmentProgress := (t * (totalPoints - 1)) - (currentIndex - 1)
+        currentP := MiddlePointWeighted(path[currentIndex], path[nextIndex], segmentProgress)
+        
+        MouseMove(currentP[1], currentP[2], 0)
+        
+        if (A_Index < totalPoints - 2) {
+            Sleep 20
+        }
+        
+        if (progress >= 1) {
+            MouseMove(path[totalPoints][1], path[totalPoints][2], 0)
+            break
+        }
+    }
+}
+
+ApplyEasing(t, mode:="InOutCubic") {
+    switch mode {
+        case "InQuad": return t * t
+        case "OutQuad": return t * (2 - t)
+        case "InOutQuad": 
+            return (t < 0.5) ? 2 * t * t : -1 + (4 - 2 * t) * t
+        case "InCubic": return t * t * t
+        case "OutCubic": return (--t) * t * t + 1
+        case "InOutCubic":
+            return (t < 0.5) ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1
+        default: return t
+    }
 }
 
 class ClickHelper {
@@ -300,7 +408,7 @@ class ClickHelper {
 }
 
 class InputScheduler{
-    
+
 }
 
 GetWinSize(winTitle){
