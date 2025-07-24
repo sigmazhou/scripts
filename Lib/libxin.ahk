@@ -288,10 +288,8 @@ ApplyEasing(t, mode:="InOutCubic") {
 class WaitHelper {
     dryRun := False
     timeSpreadDivider := 3
-    defaultStdDevRatio := 0.2
     
-    SleepRamdom(t, simpleOffset?, mint?, maxt?, options:=[]) {
-        simpleOffset := simpleOffset?? t*this.defaultStdDevRatio
+    SleepRamdom(t, simpleOffset:=0, mint?, maxt?, options:=[]) {
         mint := mint?? t-simpleOffset
         maxt := maxt?? t+simpleOffset
         stddevT := Min(t-mint, maxt-t) / this.timeSpreadDivider
@@ -375,6 +373,7 @@ class InputScheduler {
     ch := ClickHelper()
     wh := WaitHelper()
     savedClicks := Map()
+    defaultTimeStdDevRatio := 0.25
 
     __New(windowWidth:=1, windowHeight?, setupWidth:=1, setupHeight?) {
         this.ch := ClickHelper(windowWidth, windowHeight?, setupWidth, setupHeight?)
@@ -390,7 +389,7 @@ class InputScheduler {
     SetDryRun(dryRun) {
         this.dryRun:=dryRun
     }
-    SaveClick(label, p, kwargs?, btn:="LButton", simpleOffset:=0, minp?, maxp?, t:=0, simpleTimeOffset:=0, mint?, maxt?, options:=[]){
+    SaveClick(label, p, kwargs?, btn:="LButton", simpleOffset:=0, minp?, maxp?, t:=0, simpleTimeOffset?, mint?, maxt?, options:=[]){
         if IsSet(kwargs) {
             argsList := ["btn", "simpleOffset", "minp", "maxp", "t", "simpleTimeOffset", "mint", "maxt", "options"]
             for i, arg in argsList {
@@ -399,6 +398,7 @@ class InputScheduler {
         }
         minp := minp?? [p[1]-simpleOffset, p[2]-simpleOffset]
         maxp := maxp?? [p[1]+simpleOffset, p[2]+simpleOffset]
+        simpleTimeOffset := simpleTimeOffset?? t*this.defaultTimeStdDevRatio
         mint := mint?? t-simpleTimeOffset
         maxt := maxt?? t+simpleTimeOffset
         this.savedClicks[label]:=[p,btn,minp,maxp,t,mint,maxt,options]
