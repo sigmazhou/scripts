@@ -223,32 +223,25 @@ Sample2DNormalDistributionBounded(mean:=[0,0], stddev:=[1,1], maxdev?, lower?, u
     return [x,y]
 }
 
-
-SimulatedMouseMove(targetP) {
-    MouseGetPos(&startX, &startY)
-    path := GenerateBezierPath([startX, startY], targetP, 50)
-    _SimulatedMove(path, 150)
-}
-
-GenerateBezierPath(startP, endP, numPoints) {
+GenerateBezierPath(startP, endP, numSegments) {
     dist := DistanceOf(startP, endP)
     ctrlP := ArrAdd(MiddlePointWeighted(startP, endP, Random(0.3, 0.7))
-        , Sample2DNormalDistributionBounded([0,0], [dist/12, dist/12], [dist/4, dist/4]))
+        , Sample2DNormalDistributionBounded([0,0], [dist/9, dist/9], [dist/3, dist/3]))
 
-    path := []
-    Loop numPoints {
-        t := A_Index / numPoints
+    path := [startP]
+    Loop numSegments-1 {
+        t := A_Index / numSegments
         x := (1-t)**2 * startP[1] + 2*(1-t)*t * ctrlP[1] + t**2 * endP[1]
         y := (1-t)**2 * startP[2] + 2*(1-t)*t * ctrlP[2] + t**2 * endP[2]
         p := ArrAdd([x,y], 
-            Sample2DNormalDistributionBounded([0,0], [dist/numPoints/9, dist/numPoints/9], [dist/numPoints/3, dist/numPoints/3]))
+            Sample2DNormalDistributionBounded([0,0], [dist/numSegments/9, dist/numSegments/9], [dist/numSegments/3, dist/numSegments/3]))
         path.Push(p)
     }
     path.Push(endP)
     return path
 }
 
-_SimulatedMove(path, duration, easingType?) {
+MovePath(path, duration, easingType?) {
     totalPoints := path.Length
     startTime := A_TickCount
     
@@ -256,6 +249,7 @@ _SimulatedMove(path, duration, easingType?) {
         elapsed := A_TickCount - startTime
         progress := Min(elapsed / duration, 1.0)
         
+        ; translate uniform time progress to eased t
         t := ApplyEasing(progress, easingType?)
         
         currentIndex := Floor(t * (totalPoints - 1)) + 1
@@ -267,7 +261,7 @@ _SimulatedMove(path, duration, easingType?) {
         MouseMove(currentP[1], currentP[2], 0)
         
         if (A_Index < totalPoints - 2) {
-            Sleep 20
+            Sleep 10
         }
         
         if (progress >= 1) {
@@ -291,33 +285,51 @@ ApplyEasing(t, mode:="InOutCubic") {
     }
 }
 
+class WaitHelper {
+    dryRun := False
+    timeSpreadDivider := 3
+    defaultStdDevRatio := 0.2
+    
+    SleepRamdom(t, simpleOffset?, mint?, maxt?, options:=[]) {
+        simpleOffset := simpleOffset?? t*this.defaultStdDevRatio
+        mint := mint?? t-simpleOffset
+        maxt := maxt?? t+simpleOffset
+        stddevT := Min(t-mint, maxt-t) / this.timeSpreadDivider
+        finalT := SampleNormalDistributionBounded(t, stddevT,, mint, maxt)
+        if !this.dryRun {
+            Sleep finalT
+        }
+        return finalT
+    }
+    sr(a*){
+        return this.SleepRamdom(a*)
+    }
+}
+
 class ClickHelper {
+    dryRun := False
+    wh := WaitHelper()
+    ; mouse click config
     scaleX := 1
     scaleY := 1
     spaceSpreadDivider := 3   ; larger -> more center, smaller -> more spread
-    timeSpreadDivider := 3
-    dryRun := False
-    savedClicks := Map()
+    clickHoldAvg := 75
+    clickHoldOffset := 25
     ; sometimes we need multiple click to have same relative position
     ; used in option fixedOffset
     fixedOffsetP := [0,0]
     fixedOffsetMinP := [0,0]
     fixedOffsetMaxP := [0,0]
+    ; mouse move config
+    pathNumSegments := 25
+    mouseMoveMaxSpeed := 15 ; in px/ms
+    easingMode:= "InOutCubic"
+    waitAfterMoveAvg:=50
+    waitAfterMoveOffset:=20
 
     __New(windowWidth:=1, windowHeight?, setupWidth:=1, setupHeight?) {
         this.scaleX := windowWidth/setupWidth
         this.scaleY := IsSet(setupHeight) && IsSet(windowHeight) ? windowHeight/setupHeight : this.scaleX
-    }
-    SetSpread(spaceSpreadDivider?, timeSpreadDivider?) {
-        if IsSet(spaceSpreadDivider) {
-            this.spaceSpreadDivider := spaceSpreadDivider
-        }
-        if IsSet(timeSpreadDivider) {
-            this.timeSpreadDivider := timeSpreadDivider
-        }
-    }
-    SetDryRun(dryRun) {
-        this.dryRun:=dryRun
     }
     RandomizeFixedOffset(simpleOffset?, minp?, maxp?) {
         this.fixedOffsetMinP := minp?? (IsSet(simpleOffset)?[-simpleOffset, -simpleOffset]:this.fixedOffsetMinP)
@@ -327,7 +339,58 @@ class ClickHelper {
         this.fixedOffsetP := Sample2DNormalDistributionBounded(centerP, stddevP,, this.fixedOffsetMinP, this.fixedOffsetMaxP)
         return this.fixedOffsetP
     }
-    SaveClick(label, p, kwargs?, btn:="Left", simpleOffset:=0, minp?, maxp?, t:=0, simpleTimeOffset:=0, mint?, maxt?, options:=[]){
+    SimulatedMouseMove(targetP) {
+        MouseGetPos(&startX, &startY)
+        path := GenerateBezierPath([startX, startY], targetP, this.pathNumSegments)
+        dist := DistanceOf([startX, startY], targetP)
+        durationBase:= Max(dist/this.mouseMoveMaxSpeed, 50)
+        duration := SampleNormalDistributionBounded(durationBase, durationBase*0.1, durationBase*0.25)
+        MovePath(path,duration,this.easingMode)
+    }
+    ClickRandom(p, btn:="LButton", simpleOffset:=0, minp?, maxp?, options:=[]){
+        minp := minp?? [p[1]-simpleOffset, p[2]-simpleOffset]
+        maxp := maxp?? [p[1]+simpleOffset, p[2]+simpleOffset]
+        stddevP := ArrMap((x,minx,maxx)=>Min(x-minx, maxx-x) / this.spaceSpreadDivider, p, minp, maxp)
+        finalP := Sample2DNormalDistributionBounded(p, stddevP,, minp, maxp)
+        
+        if ArrContains(options, "fixedOffset") {
+            finalP := ArrAdd(finalP, this.fixedOffsetP)
+        }
+
+        if !this.dryRun {
+            this.SimulatedMouseMove([finalP[1]*this.scaleX, finalP[2]*this.scaleY])
+            this.wh.SleepRamdom(this.waitAfterMoveAvg, this.waitAfterMoveOffset)
+            Send "{" . btn . " Down}"
+            this.wh.SleepRamdom(this.clickHoldAvg, this.clickHoldOffset)
+            Send "{" . btn . " Up}"
+        }
+        return finalP
+    }
+    cr(a*){
+        return this.ClickRandom(a*)
+    }
+}
+
+class InputScheduler {
+    ch := ClickHelper()
+    wh := WaitHelper()
+    savedClicks := Map()
+
+    __New(windowWidth:=1, windowHeight?, setupWidth:=1, setupHeight?) {
+        this.ch := ClickHelper(windowWidth, windowHeight?, setupWidth, setupHeight?)
+    }
+    SetSpread(spaceSpreadDivider?, timeSpreadDivider?) {
+        if IsSet(spaceSpreadDivider) {
+            this.ch.spaceSpreadDivider := spaceSpreadDivider
+        }
+        if IsSet(timeSpreadDivider) {
+            this.wh.timeSpreadDivider := timeSpreadDivider
+        }
+    }
+    SetDryRun(dryRun) {
+        this.dryRun:=dryRun
+    }
+    SaveClick(label, p, kwargs?, btn:="LButton", simpleOffset:=0, minp?, maxp?, t:=0, simpleTimeOffset:=0, mint?, maxt?, options:=[]){
         if IsSet(kwargs) {
             argsList := ["btn", "simpleOffset", "minp", "maxp", "t", "simpleTimeOffset", "mint", "maxt", "options"]
             for i, arg in argsList {
@@ -347,36 +410,11 @@ class ClickHelper {
         p := this.savedClicks[label]
         return this.ClickRandomSleepRandom(p[1],p[2],,p[3],p[4],p[5],,p[6],p[7],p[8])
     }
-    ClickRandom(p, btn:="Left", simpleOffset:=0, minp?, maxp?, options:=[]){
-        minp := minp?? [p[1]-simpleOffset, p[2]-simpleOffset]
-        maxp := maxp?? [p[1]+simpleOffset, p[2]+simpleOffset]
-        stddevP := ArrMap((x,minx,maxx)=>Min(x-minx, maxx-x) / this.spaceSpreadDivider, p, minp, maxp)
-        finalP := Sample2DNormalDistributionBounded(p, stddevP,, minp, maxp)
-        
-        if ArrContains(options, "fixedOffset") {
-            finalP := ArrAdd(finalP, this.fixedOffsetP)
-        }
-
-        if !this.dryRun {
-            Click finalP[1]*this.scaleX, finalP[2]*this.scaleY, btn
-        }
-        return finalP
-    }
-    SleepRamdom(t, simpleOffset:=0, mint?, maxt?, options:=[]) {
-        mint := mint?? t-simpleOffset
-        maxt := maxt?? t+simpleOffset
-        stddevT := Min(t-mint, maxt-t) / this.timeSpreadDivider
-        finalT := SampleNormalDistributionBounded(t, stddevT,, mint, maxt)
-        if !this.dryRun {
-            Sleep finalT
-        }
-        return finalT
-    }
-    ClickRandomSleepRandom(p, btn:="Left", simpleOffset:=0, minp?, maxp?, t:=0, simpleTimeOffset:=0, mint?, maxt?, options:=[]){
-        retP := this.ClickRandom(p,btn,simpleOffset,minp?,maxp?,options)
+    ClickRandomSleepRandom(p, btn:="LButton", simpleOffset:=0, minp?, maxp?, t:=0, simpleTimeOffset:=0, mint?, maxt?, options:=[]){
+        retP := this.ch.ClickRandom(p,btn,simpleOffset,minp?,maxp?,options)
         retT := 0
         if t>0 {
-            retT := this.SleepRamdom(t,simpleTimeOffset,mint?,maxt?,options)
+            retT := this.wh.SleepRamdom(t,simpleTimeOffset,mint?,maxt?,options)
         }
         return [retP, retT]
     }
@@ -396,19 +434,9 @@ class ClickHelper {
     cs(a*){
         return this.ClickSaved(a*)
     }
-    cr(a*){
-        return this.ClickRandom(a*)
-    }
-    sr(a*){
-        return this.SleepRamdom(a*)
-    }
     crsr(a*){
         return this.ClickRandomSleepRandom(a*)
     }
-}
-
-class InputScheduler{
-
 }
 
 GetWinSize(winTitle){
