@@ -285,32 +285,48 @@ ApplyEasing(t, mode:="InOutCubic") {
     }
 }
 
-class WaitHelper {
-    dryRun := False
-    timeSpreadDivider := 3
-    
-    SleepRamdom(t, simpleOffset:=0, mint?, maxt?, options:=[]) {
-        mint := mint?? t-simpleOffset
-        maxt := maxt?? t+simpleOffset
-        stddevT := Min(t-mint, maxt-t) / this.timeSpreadDivider
-        finalT := SampleNormalDistributionBounded(t, stddevT,, mint, maxt)
-        if !this.dryRun {
-            Sleep finalT
-        }
-        return finalT
+SleepRamdom(t, simpleOffset:=0, mint?, maxt?, timeSpreadDivider := 3, dryRun := False) {
+    mint := mint?? t-simpleOffset
+    maxt := maxt?? t+simpleOffset
+    stddevT := Min(t-mint, maxt-t) / timeSpreadDivider
+    finalT := SampleNormalDistributionBounded(t, stddevT,, mint, maxt)
+    if !dryRun {
+        Sleep finalT
     }
-    sr(a*){
-        return this.SleepRamdom(a*)
+    return finalT
+}
+
+CheckPixels(pixels, colors) {
+    if !(pixels is Array) {
+        pixels := [pixels]
+    }
+    if !(colors is Array) {
+        colors := [colors]
+    }
+    for i, pixel in pixels {
+        if !(PixelGetColor(pixel[1], pixel[2]) = colors[i]) {
+            break
+        }
+        if i=pixels.Length {
+            return True
+        }
+    }
+    return False
+}
+
+WaitUntilPixels(pixels, colors, interval:=5001) {
+    while !CheckPixels(pixels, colors) {
+        Sleep interval
     }
 }
 
 class ClickHelper {
     dryRun := False
-    wh := WaitHelper()
-    ; mouse click config
     scaleX := 1
     scaleY := 1
+    ; mouse click config
     spaceSpreadDivider := 3   ; larger -> more center, smaller -> more spread
+    timeSpreadDivider := 3
     clickHoldAvg := 75
     clickHoldOffset := 25
     ; sometimes we need multiple click to have same relative position
@@ -345,7 +361,13 @@ class ClickHelper {
         duration := SampleNormalDistributionBounded(durationBase, durationBase*0.1, durationBase*0.25)
         MovePath(path,duration,this.easingMode)
     }
-    ClickRandom(p, btn:="LButton", simpleOffset:=0, minp?, maxp?, options:=[]){
+    ClickRandom(p?, btn:="LButton", simpleOffset:=0, minp?, maxp?, options:=[]){
+        if !IsSet(p) and IsSet(minp) and IsSet(maxp) {
+            p := MiddlePointWeighted(minp, maxp, 0.5)
+        }
+        if !IsSet(p) {
+            Throw UnsetError("click point unset")
+        }
         minp := minp?? [p[1]-simpleOffset, p[2]-simpleOffset]
         maxp := maxp?? [p[1]+simpleOffset, p[2]+simpleOffset]
         stddevP := ArrMap((x,minx,maxx)=>Min(x-minx, maxx-x) / this.spaceSpreadDivider, p, minp, maxp)
@@ -357,9 +379,9 @@ class ClickHelper {
 
         if !this.dryRun {
             this.SimulatedMouseMove([finalP[1]*this.scaleX, finalP[2]*this.scaleY])
-            this.wh.SleepRamdom(this.waitAfterMoveAvg, this.waitAfterMoveOffset)
+            SleepRamdom(this.waitAfterMoveAvg, this.waitAfterMoveOffset,,,this.timeSpreadDivider)
             Send "{" . btn . " Down}"
-            this.wh.SleepRamdom(this.clickHoldAvg, this.clickHoldOffset)
+            SleepRamdom(this.clickHoldAvg, this.clickHoldOffset,,,this.timeSpreadDivider)
             Send "{" . btn . " Up}"
         }
         return finalP
@@ -369,25 +391,35 @@ class ClickHelper {
     }
 }
 
-class InputScheduler {
+class Scheduler {
+    dryRun := False
+    scaleX := 1
+    scaleY := 1
+
     ch := ClickHelper()
-    wh := WaitHelper()
-    savedClicks := Map()
+
+    ; node[1] is the operation type, node[2:] is the parameters
+    nodes := Map()
+
+    timeSpreadDivider := 3
     defaultTimeStdDevRatio := 0.25
 
     __New(windowWidth:=1, windowHeight?, setupWidth:=1, setupHeight?) {
         this.ch := ClickHelper(windowWidth, windowHeight?, setupWidth, setupHeight?)
+        this.scaleX := windowWidth/setupWidth
+        this.scaleY := IsSet(setupHeight) && IsSet(windowHeight) ? windowHeight/setupHeight : this.scaleX
     }
     SetSpread(spaceSpreadDivider?, timeSpreadDivider?) {
         if IsSet(spaceSpreadDivider) {
             this.ch.spaceSpreadDivider := spaceSpreadDivider
         }
         if IsSet(timeSpreadDivider) {
-            this.wh.timeSpreadDivider := timeSpreadDivider
+            this.timeSpreadDivider := timeSpreadDivider
         }
     }
     SetDryRun(dryRun) {
         this.dryRun:=dryRun
+        this.ch.dryRun:=dryRun
     }
     SaveClick(label, p, kwargs?, btn:="LButton", simpleOffset:=0, minp?, maxp?, t:=0, simpleTimeOffset?, mint?, maxt?, options:=[]){
         if IsSet(kwargs) {
@@ -401,32 +433,56 @@ class InputScheduler {
         simpleTimeOffset := simpleTimeOffset?? t*this.defaultTimeStdDevRatio
         mint := mint?? t-simpleTimeOffset
         maxt := maxt?? t+simpleTimeOffset
-        this.savedClicks[label]:=[p,btn,minp,maxp,t,mint,maxt,options]
+        this.nodes[label]:=["click", p,btn,minp,maxp,t,mint,maxt,options]
     }
-    _GetSaved(label?){
-        return IsSet(label)? this.savedClicks[label]:this.savedClicks
+    RegisterWait(label, pixels, colors, interval:=5001){
+        this.nodes[label]:=["waitUntilPixels", pixels, colors, interval]
     }
-    ClickSaved(label){
-        p := this.savedClicks[label]
-        return this.ClickRandomSleepRandom(p[1],p[2],,p[3],p[4],p[5],,p[6],p[7],p[8])
+    RegisterSleep(label, t:=0, simpleTimeOffset?, mint?, maxt?, timeSpreadDivider?) {
+        simpleTimeOffset := simpleTimeOffset?? t*this.defaultTimeStdDevRatio
+        mint := mint?? t-simpleTimeOffset
+        maxt := maxt?? t+simpleTimeOffset
+        timeSpreadDivider := timeSpreadDivider?? this.timeSpreadDivider
+        this.nodes[label]:=["sleep", t, mint, maxt, timeSpreadDivider]
+    }
+    RegisterCheckPixel(label, pixels, colors){
+        this.nodes[label]:=["checkPixels", pixels, colors]
+    }
+    _GetNode(label?){
+        return IsSet(label)? this.nodes[label]:this.nodes
+    }
+    RunNode(label){
+        p := this.nodes[label]
+        if p[1]="click" {
+            return this.ClickRandomSleepRandom(p[2],p[3],,p[4],p[5],p[6],,p[7],p[8],p[9])
+        } else if p[1]="waitUntilPixels" {
+            return WaitUntilPixels(p[2], p[3], p[4])
+        } else if p[1]="sleep" {
+            return SleepRamdom(p[2],,p[3],p[4],p[5])
+        } else if p[1]="checkPixels" {
+            return CheckPixels(p[2],p[3])
+        }
     }
     ClickRandomSleepRandom(p, btn:="LButton", simpleOffset:=0, minp?, maxp?, t:=0, simpleTimeOffset:=0, mint?, maxt?, options:=[]){
         retP := this.ch.ClickRandom(p,btn,simpleOffset,minp?,maxp?,options)
         retT := 0
         if t>0 {
-            retT := this.wh.SleepRamdom(t,simpleTimeOffset,mint?,maxt?,options)
+            retT := SleepRamdom(t,simpleTimeOffset,mint?,maxt?)
         }
         return [retP, retT]
     }
     ExecutePlan(plan){
+        ; return the output of the last node
+        ret := 0
         for i, step in plan {
             if step is Array {
                 i := Random(1, step.Length)
-                this.ClickSaved(step[i])
+                ret := this.RunNode(step[i])
             } else {
-                this.ClickSaved(step)
+                ret := this.RunNode(step)
             }
         }
+        return ret
     }
     sc(a*){
         return this.SaveClick(a*)

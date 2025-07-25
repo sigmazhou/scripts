@@ -5,8 +5,8 @@ init(){
     global
     W := GetWinSize("少女前线")[1]
     H := GetWinSize("少女前线")[2]
-    ch := InputScheduler(W,H,2560,1440)
-    ch.sc("restartfight", [803, 1250],{minp:[656, 1217], maxp:[944, 1277], t:1200, simpleTimeOffset:400})   ; x4
+    ch := Scheduler(W,H,2560,1440)
+    ch.sc("restartfight", [803, 1250],{minp:[656, 1217], maxp:[944, 1277], t:900, simpleTimeOffset:300})   ; x4
     ch.sc("restartfightandwait", [803, 1250],{minp:[656, 1217], maxp:[944, 1277], t:4000, simpleTimeOffset:500})   ; x4
     ch.sc("party1", [1539, 427], {minp: [1490, 389], maxp: [1576, 466], t:1200, simpleTimeOffset: 400})
     ch.sc("changepartyformation", [500, 1258], {minp: [325, 1218], maxp: [696, 1294], t:2500, simpleTimeOffset: 400})
@@ -16,7 +16,7 @@ init(){
     ch.sc("stock1", [216, 499], {minp: [78, 260], maxp: [348, 764], t:900, simpleTimeOffset: 300})
     ch.sc("stock2", [564, 504], {minp: [428, 254], maxp: [696, 760], t:900, simpleTimeOffset: 300})
     ch.sc("confirmpartyformation", [2355, 1314], {minp: [2203, 1233], maxp: [2528, 1398], t:2000, simpleTimeOffset: 500})
-    ch.sc("backtofight", [189, 105], {minp: [22, 36], maxp: [340, 182], t:4000, simpleTimeOffset: 500})
+    ch.sc("back", [189, 105], {minp: [22, 36], maxp: [340, 182], t:5000, simpleTimeOffset: 500})
     ch.sc("startfight", [2255, 1324], {minp: [1999, 1219], maxp: [2531, 1414], t:4000, simpleTimeOffset: 500})
     ch.sc("party2", [309, 608], {minp: [266, 574], maxp: [350, 651], t:1200, simpleTimeOffset: 400}) ;x2
     ch.sc("fillammo", [2349, 1126], {minp: [2171, 1068], maxp: [2546, 1176], t:1200, simpleTimeOffset: 400})
@@ -27,22 +27,49 @@ init(){
     ch.sc("waypoint3v1", [1536, 1154], {minp: [1494, 1113], maxp: [1579, 1195], t:900, simpleTimeOffset: 300})
     ch.sc("waypoint3v2", [1539, 788], {minp: [1493, 754], maxp: [1579, 834], t:900, simpleTimeOffset: 300})
     ch.sc("executeplan", [2356, 1331], {minp: [2202, 1249], maxp: [2523, 1408]})
+
+    ch.RegisterWait("fightdone", [[2480,80],[2501,233], [2500,1184], [2500,1292]],[0xffda6e, 0xffbe63, 0xffda6e, 0xffbe63])
+    ch.RegisterSleep("gap", 5000,,1000,60000, 1)
+    ch.RegisterSleep("gap2", 10000,,1000,120000, 1)
+    ch.RegisterCheckPixel("fightdone1", [[2480,80],[2501,233], [2500,1184], [2500,1292]],[0xffda6e, 0xffbe63, 0xffda6e, 0xffbe63])
+    ch.RegisterCheckPixel("isfull", [[868, 1053], [1169, 1049]], [0x02ddff, 0xfdb300])
+
+    ch.sc("gorecycle", [1280, 1057], {minp: [1100, 1020], maxp: [1457, 1080], t:2000})
+    ch.sc("recycleselectchar", [661, 432], {minp: [497, 341], maxp: [822, 524], t:1200})
+    ch.sc("autoselectandconfirm", [2357, 1309], {minp: [2206, 1219], maxp: [2525, 1407], t:900}) ;x2
+    ch.sc("recycle", [2271, 1210], {minp: [2113, 1155], maxp: [2433, 1269], t:3000})
+    ;back
+    ch.sc("hometofight", [1864, 850], {minp: [1618, 751], maxp: [2097, 943], t:3000})
+    ch.sc("4thfight", [1553, 1322], {minp: [849, 1237], maxp: [2509, 1392], t:2000})
+    ch.sc("startfighthome", [1981, 1199], {minp: [1784, 1130], maxp: [2203, 1259], t:5000})
+    ;p1
+    ch.sc("deploy", [2326, 1278], {minp: [2171, 1218], maxp: [2489, 1331], t:1200})
 }
 
 init()
 
 OneRound(){
     global ch
-    plan := ["restartfight", "restartfight", "restartfight", "restartfightandwait", "party1", "changepartyformation", "partymember1", 
-        "filterby", "starred", "stock1", "stock1", "stock2", "stock1", "confirmpartyformation", "backtofight", "startfight",
-        "party2","party2", "fillammo", "planmode", "deselect1","party1", "waypoint1","waypoint2", ["waypoint3v1", "waypoint3v2"], "executeplan"]
-    ch.ExecutePlan(plan)
+    plan := ["party1", "changepartyformation", "partymember1", 
+        "filterby", "starred", "stock1", "stock1", "stock2", "stock1", "confirmpartyformation", "back", "startfight",
+        "party2","party2", "fillammo", "planmode", "deselect1","party1", "waypoint1","waypoint2", ["waypoint3v1", "waypoint3v2"], "executeplan", 
+        "fightdone", "gap", "restartfight", "restartfight", "restartfight", "restartfightandwait", "isfull"]
+    return ch.ExecutePlan(plan)
 }
+;[868, 1053], {minp: [868, 1053], maxp: [868, 1053]} 02ddff
+;[1169, 1049], {minp: [1169, 1049], maxp: [1169, 1049]} fdb300
 
 PgUp::{
-    OneRound()
-    ;Click 224,480, "LButton"
-    ;SendInput "{Click 224 480}"
+    planfull := ["gorecycle", "recycleselectchar","autoselectandconfirm", "autoselectandconfirm", "recycle", "back", "gap2",
+    "hometofight", "4thfight", "startfighthome", "party1", "deploy", "party2", "deploy"]
+    clears := 3
+    while clears {
+        r := OneRound()
+        if r {
+            ch.ExecutePlan(planfull)
+            clears-=1
+        }
+    }
 }
 `::Reload
 
