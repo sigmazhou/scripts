@@ -402,7 +402,7 @@ class Scheduler {
     nodes := Map()
 
     timeSpreadDivider := 3
-    defaultTimeStdDevRatio := 0.25
+    defaultTimeStdDevRatio := 0.2
 
     __New(windowWidth:=1, windowHeight?, setupWidth:=1, setupHeight?) {
         this.ch := ClickHelper(windowWidth, windowHeight?, setupWidth, setupHeight?)
