@@ -10,7 +10,8 @@ init(){
     ch.sc("restartfightandwait", [803, 1250],{minp:[656, 1217], maxp:[944, 1277], t:4000, simpleTimeOffset:500})   ; x4
     ch.sc("party1", [1539, 427], {minp: [1490, 389], maxp: [1576, 466], t:1200, simpleTimeOffset: 400})
     ch.sc("changepartyformation", [500, 1258], {minp: [325, 1218], maxp: [696, 1294], t:2500, simpleTimeOffset: 400})
-    ch.sc("partymember1", [481, 707], {minp: [326, 285], maxp: [634, 1109], t:1200, simpleTimeOffset: 400})
+    ch.sc("partymember1", [481, 707], {minp: [326, 285], maxp: [634, 1109], t:900, simpleTimeOffset: 300})
+    ch.sc("partymember2", [837, 671], {minp: [689, 285], maxp: [993, 991], t:900, simpleTimeOffset: 300})
     ch.sc("filterby", [2347, 541], {minp: [2205, 472], maxp: [2515, 640], t:1200, simpleTimeOffset: 400})
     ch.sc("starred", [1939, 265], {minp: [1775, 239], maxp: [2100, 285], t:1200, simpleTimeOffset: 400})
     ch.sc("stock1", [216, 499], {minp: [78, 260], maxp: [348, 764], t:900, simpleTimeOffset: 300})
@@ -53,19 +54,18 @@ init()
 
 OneRound(){
     global ch
-    plan := ["party1", "changepartyformation", "partymember1", 
+    member := "partymember2"
+    plan := ["party1", "changepartyformation", member, 
         "filterby", "starred", "stock1", "stock1", "stock2", "stock1", "confirmpartyformation", "back", "startfight",
         "party2","party2", "fillammo", "planmode", "deselect1","party1", "waypoint1","waypoint2", ["waypoint3v1", "waypoint3v2"], "executeplan", 
         "fightdone", "gap", "restartfight", "restartfight", "restartfight", "restartfightandwait", "isfull"]
     return ch.ExecutePlan(plan)
 }
-;[868, 1053], {minp: [868, 1053], maxp: [868, 1053]} 02ddff
-;[1169, 1049], {minp: [1169, 1049], maxp: [1169, 1049]} fdb300
 
 PgUp::{
     planfullp1 := ["gorecycle", "recycleselectchar","autoselectandconfirm", "autoselectandconfirm", "recycle", "back", "gap2", "supportdone"]
     planfullp2 := ["hometofight", "4thfight", "startfighthome", "party1", "deploy", "party2", "deploy"]
-    clears := 3
+    clears := 5
     while clears {
         r := OneRound()
         if r {
