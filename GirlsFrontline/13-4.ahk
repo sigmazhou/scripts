@@ -16,7 +16,7 @@ init(){
     ch.sc("starred", [1939, 265], {minp: [1775, 239], maxp: [2100, 285], t:900, simpleTimeOffset: 300})
     ch.sc("stock1", [216, 499], {minp: [78, 260], maxp: [348, 764], t:900, simpleTimeOffset: 300})
     ch.sc("stock2", [564, 504], {minp: [428, 254], maxp: [696, 760], t:900, simpleTimeOffset: 300})
-    ch.sc("confirmpartyformation", [2355, 1314], {minp: [2203, 1233], maxp: [2528, 1398], t:2000, simpleTimeOffset: 500})
+    ch.sc("confirmpartyformation", [2355, 1314], {minp: [2203, 1233], maxp: [2528, 1398], t:2500, simpleTimeOffset: 500})
     ch.sc("back", [189, 105], {minp: [22, 36], maxp: [340, 182], t:6000, simpleTimeOffset: 500})
     ch.sc("startfight", [2255, 1324], {minp: [1999, 1219], maxp: [2531, 1414], t:5000, simpleTimeOffset: 500})
     ch.sc("party2", [309, 608], {minp: [266, 574], maxp: [350, 651], t:900, simpleTimeOffset: 300}) ;x2
@@ -35,8 +35,10 @@ init(){
     ch.RegisterCheckPixel("fightdone1", [[2480,80],[2501,233], [2500,1184], [2500,1292]],[0xffda6e, 0xffbe63, 0xffda6e, 0xffbe63])
     ch.RegisterCheckPixel("isfull", [[868, 1053], [1169, 1049]], [0x02ddff, 0xfdb300])
     ch.RegisterCheckPixel("supportdone", [[2509, 84], [2515, 250], [2510, 985], [2510, 1060]], [0x4a4c18, 0x393d10, 0x4a4c18, 0x393d10])
+    ch.RegisterCheckPixel("achievement", [[46, 689], [46, 808], [2507, 658], [2505, 807]], [0xd2d2d2, 0xd6d6d6, 0xd2d2d2, 0xd6d6d6])
     ch.sc("resendsupport", [2280, 1349], {minp: [2143, 1322], maxp: [2429, 1374], t:1200})
     ch.sc("resendsupportconfirm", [1484, 994], {minp: [1332, 936], maxp: [1652, 1045], t:4000})
+    ch.sc("closeachievement", [1165, 1231], {minp: [872, 1094], maxp: [1615, 1413], t:1200})
 
     ch.sc("gorecycle", [1280, 1057], {minp: [1100, 1020], maxp: [1457, 1080], t:2000})
     ch.sc("recycleselectchar", [661, 432], {minp: [497, 341], maxp: [822, 524], t:1200})
@@ -73,10 +75,19 @@ PgUp::{
             if supportdone {
                 ch.ExecutePlan(["resendsupport", "resendsupportconfirm"])
             }
-            ch.ExecutePlan(planfullp2)
+            achievement := ch.ExecutePlan(["achievement"])
+            if achievement {
+                ch.ExecutePlan(["closeachievement"])
+            }
             clears-=1
+            if clears>0 {
+                ch.ExecutePlan(planfullp2)
+            }
         }
     }
+}
+PgDn::{
+    msgbox ch.ExecutePlan(["achievement"])
 }
 `::Reload
 
