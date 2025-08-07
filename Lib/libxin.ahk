@@ -225,7 +225,7 @@ Sample2DNormalDistributionBounded(mean:=[0,0], stddev:=[1,1], maxdev?, lower?, u
 
 GenerateBezierPath(startP, endP, numSegments) {
     dist := DistanceOf(startP, endP)
-    ctrlP := ArrAdd(MiddlePointWeighted(startP, endP, Random(0.3, 0.7))
+    ctrlP := ArrAdd(MiddlePointWeighted(startP, endP, Random(0.2, 0.8))
         , Sample2DNormalDistributionBounded([0,0], [dist/9, dist/9], [dist/3, dist/3]))
 
     path := [startP]

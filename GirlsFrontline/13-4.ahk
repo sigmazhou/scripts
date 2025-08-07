@@ -29,7 +29,7 @@ init(){
     ch.sc("waypoint3v2", [1539, 788], {minp: [1493, 754], maxp: [1579, 834], t:900, simpleTimeOffset: 300})
     ch.sc("executeplan", [2356, 1331], {minp: [2202, 1249], maxp: [2523, 1408]})
 
-    ch.RegisterWait("fightdone", [[2480,80],[2501,233], [2500,1184], [2500,1292]],[0xffda6e, 0xffbe63, 0xffda6e, 0xffbe63])
+    ch.RegisterWait("fightdone", [[2480,80],[2501,233], [2500,1379], [2500,1292]],[0xffda6e, 0xffbe63, 0xffda6e, 0xffbe63])
     ch.RegisterSleep("gap", 5000,,1000,60000, 1)
     ch.RegisterSleep("gap2", 10000,,1000,120000, 1)
     ch.RegisterCheckPixel("fightdone1", [[2480,80],[2501,233], [2500,1184], [2500,1292]],[0xffda6e, 0xffbe63, 0xffda6e, 0xffbe63])
@@ -87,7 +87,8 @@ PgUp::{
     }
 }
 PgDn::{
-    msgbox ch.ExecutePlan(["achievement"])
+    ch.sc("test", [2002,310])
+    ch.ExecutePlan(["test"])
 }
 `::Reload
 
