@@ -180,12 +180,32 @@ class MyStrat2(Strategy):
         return 1
 
 
+class GachaReport:
+    """Raw data from a single gacha simulation run."""
+    __slots__ = ("paid", "free", "total", "weapon_token", "inv", "history")
+
+    def __init__(self, paid, free, weapon_token, inv, history):
+        self.paid = paid
+        self.free = free
+        self.total = paid + free
+        self.weapon_token = weapon_token
+        self.inv = inv
+        self.history = history
+
+    @property
+    def up_count(self):
+        return self.inv["UP"]
+
+    @property
+    def six_star_count(self):
+        return self.inv["UP"] + self.inv["6"]
+
+
 class EndfieldGacha:
     def __init__(self, strategy: Strategy, free_per_banner=5):
         self.init_strategy = strategy
         self.strategy = copy.deepcopy(self.init_strategy)
         self.free_per_banner = free_per_banner
-        # 初始化默认状态
         self.initial_pity = 0
         self.initial_banner_pulls = 0
         self.initial_up_obtained = False
@@ -195,12 +215,6 @@ class EndfieldGacha:
     def set_initial_state(
         self, pity_count=0, banner_pulls=0, paid_count=0, up_obtained=False
     ):
-        """
-        设置初始状态，支持自定义：
-        pity_count: 当前小保底垫了多少抽
-        banner_pulls: 当前池子总共垫了多少抽
-        up_obtained: 当前池是否已经出过UP(影响120抽大保底判定)
-        """
         self.initial_pity = pity_count
         self.initial_banner_pulls = banner_pulls
         self.initial_up_obtained = up_obtained
@@ -208,7 +222,6 @@ class EndfieldGacha:
         self.reset()
 
     def reset(self):
-        """应用初始化设置重置模拟器"""
         self.strategy = copy.deepcopy(self.init_strategy)
         self.paid_count = self.initial_paid_count
         self.free_count = 0
@@ -227,21 +240,17 @@ class EndfieldGacha:
         self.pending_bonus = 0
 
     def _get_current_prob(self, is_pity_contributing):
-        """只有计入保底的抽取才会享受概率递增"""
         base = 0.008
         if not is_pity_contributing:
             return base
-        # 65抽后每抽+5%
         return base + max(0, self.pity_count - 65) * 0.05
 
     def pull(self, source_type="Paid", is_pity_contributing=True):
-        """source_type: "Paid", "Free_Banner" (开局5抽), "Free_60Gift" (60送10), "Free_30Gift" (30送10)"""
         if source_type == "Paid":
             self.paid_count += 1
         else:
             self.free_count += 1
 
-        # 判定是否增加保底计数
         if is_pity_contributing:
             self.banner_pulls += 1
             self.pity_count += 1
@@ -252,7 +261,6 @@ class EndfieldGacha:
         prob = self._get_current_prob(is_pity_contributing)
         rand_val = random.random()
 
-        # 1. 大保底 (仅限计入保底的抽)
         if (
             is_pity_contributing
             and self.banner_pulls == 120
@@ -260,7 +268,6 @@ class EndfieldGacha:
         ):
             res = "UP"
             self.weapon_token += 2000
-        # 2. 小保底
         elif rand_val < prob or (is_pity_contributing and self.pity_count >= 80):
             res = "UP" if random.random() < 0.5 else "6"
             self.weapon_token += 2000
@@ -275,13 +282,11 @@ class EndfieldGacha:
             res = "4"
             self.weapon_token += 20
 
-        # 记录结果
         self.inventory[res] += 1
         if res == "UP":
             self.total_up_count += 1
             self.up_obtained_current = True
 
-        # 只有在保底序列中抽到6星才重置保底
         if is_pity_contributing:
             if res in {"6", "UP"}:
                 self.pity_count = 0
@@ -309,10 +314,8 @@ class EndfieldGacha:
         self.welfare_30_used = False
         self.welfare_30_pity_count_5_star = 0
 
-        # 每池5抽（计入保底）
         for _ in range(self.free_per_banner):
             self.pull(source_type="Free_Banner", is_pity_contributing=True)
-        # 上期60抽赠送的10连（计入保底）
         while self.pending_bonus > 0:
             self.pull(source_type="Free_60Gift", is_pity_contributing=True)
             self.pending_bonus -= 1
@@ -335,16 +338,13 @@ class EndfieldGacha:
                 self.start_banner()
                 continue
 
-            # 付费抽（计入保底）
             self.pull(source_type="Paid", is_pity_contributing=True)
 
-            # 30抽送10连（不计入保底）
             if self.banner_pulls >= 30 and not self.welfare_30_used:
                 for _ in range(10):
                     self.pull(source_type="Free_30Gift", is_pity_contributing=False)
                 self.welfare_30_used = True
 
-            # 240抽额外赠送
             if self.banner_pulls > 0 and self.banner_pulls % 240 == 0:
                 self.total_up_count += 1
                 self.inventory["UP"] += 1
@@ -360,133 +360,202 @@ class EndfieldGacha:
         return self.generate_report()
 
     def generate_report(self):
-        total_up = self.inventory["UP"]
-        total_6 = self.inventory["UP"] + self.inventory["6"]
-        total_all = self.paid_count + self.free_count
-        return {
-            "paid": self.paid_count,
-            "free": self.free_count,
-            "total": total_all,
-            "weapon_token": self.weapon_token,
-            "inv": self.inventory,
-            "history": self.pull_history,
-            "avg_total_per_6": total_all / total_6 if total_6 > 0 else 0,
-            "avg_paid_per_6": self.paid_count / total_6 if total_6 > 0 else 0,
-            "avg_total_per_up": total_all / total_up if total_up > 0 else 0,
-            "avg_paid_per_up": self.paid_count / total_up if total_up > 0 else 0,
-            "weapon_token_per_paid": (
-                self.weapon_token / self.paid_count if self.paid_count > 0 else 0
-            ),
-        }
-
-    def display(self, r):
-        print(f"\n{' 终末地抽卡分项统计 ':=^50}")
-        print(f"付费抽: {r['paid']:<10} | 免费抽: {r['free']} (含计入保底与不计入部分)")
-        print(f"6星总数: {r['inv']['UP'] + r['inv']['6']} (UP: {r['inv']['UP']})")
-        print("-" * 50)
-        print(f"平均出6星耗时 (总投入/出货): {r['avg_total_per_6']:.2f} 抽")
-        print(f"平均出6星成本 (付费/出货): {r['avg_paid_per_6']:.2f} 抽")
-        print(f"平均出UP耗时 (总投入/出货): {r['avg_total_per_up']:.2f} 抽")
-        print(f"平均出UP成本 (付费/出货): {r['avg_paid_per_up']:.2f} 抽")
-        print(f"武库/付费抽: {r['weapon_token_per_paid']:.2f}")
-        print("=" * 50)
+        """Return raw data only - no derived analytics."""
+        return GachaReport(
+            paid=self.paid_count,
+            free=self.free_count,
+            weapon_token=self.weapon_token,
+            inv=dict(self.inventory),
+            history=list(self.pull_history),
+        )
 
     def multiple_sims(self, rounds=1000):
-        """执行多轮模拟，并统计宏观消耗指标"""
-        agg_paid = 0
-        agg_free = 0
-        agg_up = 0
-        agg_6_star = 0
-        agg_weapon_token = 0
-
+        """Run multiple simulations and return list of raw reports."""
+        reports = []
         for _ in range(rounds):
             self.reset()
-            report = self.simulate()
+            reports.append(self.simulate())
+        return reports
 
-            agg_paid += report["paid"]
-            agg_free += report["free"]
-            agg_up += report["inv"]["UP"]
-            agg_6_star += report["inv"]["UP"] + report["inv"]["6"]
-            agg_weapon_token += report["weapon_token"]
 
-        agg_total_pulls = agg_paid + agg_free
+class GachaAnalyzer:
+    """Analyzes gacha simulation reports produced by EndfieldGacha."""
 
-        # 计算大样本下的平均指标
-        avg_paid_per_6 = agg_paid / agg_6_star if agg_6_star > 0 else 0
-        avg_total_per_6 = agg_total_pulls / agg_6_star if agg_6_star > 0 else 0
-        avg_paid_per_up = agg_paid / agg_up if agg_up > 0 else 0
-        avg_total_per_up = agg_total_pulls / agg_up if agg_up > 0 else 0
-        avg_weapon_token_per_paid = agg_weapon_token / agg_paid if agg_paid > 0 else 0
+    def __init__(self, reports):
+        """Accept a single GachaReport or a list of GachaReports."""
+        if isinstance(reports, GachaReport):
+            reports = [reports]
+        self.reports = reports
 
-        print(f"\n{' 多轮模拟统计报告 ':=^50}")
-        print(f"模拟轮数: {rounds:,} 轮")
-        print(
-            f"策略目标: 抽满 {self.strategy.target_up_total} 个UP / 预算 {self.strategy.max_paid_pulls} 抽"
-        )
-        print(
-            f"初始垫抽状态: 小保底 {self.initial_pity} 抽 | 大保底 {self.initial_banner_pulls} 抽"
-        )
-        print("-" * 50)
-        print(f"每个 6 星平均消耗 (付费抽): {avg_paid_per_6:>8.2f} 抽")
-        print(f"每个 6 星平均消耗 (总抽数): {avg_total_per_6:>8.2f} 抽")
-        print("-" * 50)
-        print(f"每个 UP 平均消耗 (付费抽): {avg_paid_per_up:>8.2f} 抽")
-        print(f"每个 UP 平均消耗 (总抽数): {avg_total_per_up:>8.2f} 抽")
-        print("-" * 50)
-        print(f"武库/付费抽: {avg_weapon_token_per_paid:>8.2f}")
-        print("=" * 50)
+    def aggregate_pull_cost_stats(self):
+        """Compute per-sim averages and pooled pull costs across all reports."""
+        n = len(self.reports)
+
+        totals = [r.total for r in self.reports]
+        paids = [r.paid for r in self.reports]
+        up_counts = [r.up_count for r in self.reports]
+        six_counts = [r.six_star_count for r in self.reports]
+        avg_total_per_up = [r.total / r.up_count for r in self.reports if r.up_count > 0]
+        avg_total_per_6 = [r.total / r.six_star_count for r in self.reports if r.six_star_count > 0]
+
+        agg_paid = sum(paids)
+        agg_total = sum(totals)
+        agg_up = sum(up_counts)
+        agg_6 = sum(six_counts)
 
         return {
-            "avg_paid_per_6": avg_paid_per_6,
-            "avg_total_per_6": avg_total_per_6,
-            "avg_paid_per_up": avg_paid_per_up,
-            "avg_total_per_up": avg_total_per_up,
-            "avg_weapon_token_per_paid": avg_weapon_token_per_paid,
+            "rounds": n,
+            "avg_total_pulls": agg_total / n,
+            "avg_paid_pulls": agg_paid / n,
+            "avg_up_count": agg_up / n,
+            "avg_six_star_count": agg_6 / n,
+            "pooled_paid_per_6": agg_paid / agg_6 if agg_6 > 0 else 0,
+            "pooled_total_per_6": agg_total / agg_6 if agg_6 > 0 else 0,
+            "pooled_paid_per_up": agg_paid / agg_up if agg_up > 0 else 0,
+            "pooled_total_per_up": agg_total / agg_up if agg_up > 0 else 0,
+            "avg_total_per_up_per_sim": (
+                statistics.mean(avg_total_per_up) if avg_total_per_up else 0
+            ),
+            "avg_total_per_6_per_sim": (
+                statistics.mean(avg_total_per_6) if avg_total_per_6 else 0
+            ),
+            "avg_weapon_token_per_paid": (
+                sum(r.weapon_token for r in self.reports) / agg_paid if agg_paid > 0 else 0
+            ),
+            # raw lists for graphing
+            "_totals": totals,
+            "_paids": paids,
+            "_up_counts": up_counts,
+            "_six_counts": six_counts,
+            "_avg_total_per_up": avg_total_per_up,
+            "_avg_total_per_6": avg_total_per_6,
         }
+
+    def print_single_sim_pull_cost(self, index=0):
+        """Print pull counts and per-unit costs for one simulation run."""
+        r = self.reports[index]
+        up = r.up_count
+        six = r.six_star_count
+        print(f"\n{' 终末地抽卡分项统计 ':=^50}")
+        print(f"付费抽: {r.paid:<10} | 免费抽: {r.free}")
+        print(f"6星总数: {six} (UP: {up})")
+        print("-" * 50)
+        print(f"平均出6星耗时 (总投入/出货): {r.total / six:.2f} 抽" if six else "无6星")
+        print(f"平均出6星成本 (付费/出货): {r.paid / six:.2f} 抽" if six else "")
+        print(f"平均出UP耗时 (总投入/出货): {r.total / up:.2f} 抽" if up else "无UP")
+        print(f"平均出UP成本 (付费/出货): {r.paid / up:.2f} 抽" if up else "")
+        print(f"武库/付费抽: {r.weapon_token / r.paid:.2f}" if r.paid else "")
+        print("=" * 50)
+
+    def print_multi_sim_pull_cost(self):
+        """Print aggregated pull cost statistics across all simulation runs."""
+        s = self.aggregate_pull_cost_stats()
+        print(f"\n{' 多轮模拟统计报告 ':=^50}")
+        print(f"模拟轮数: {s['rounds']:,} 轮")
+        print("-" * 50)
+        print(f"平均总抽数/轮:              {s['avg_total_pulls']:>8.2f} 抽")
+        print(f"平均付费抽/轮:              {s['avg_paid_pulls']:>8.2f} 抽")
+        print(f"平均UP数/轮:                {s['avg_up_count']:>8.2f}")
+        print(f"平均6星数/轮:               {s['avg_six_star_count']:>8.2f}")
+        print("-" * 50)
+        print(f"每个 6 星平均消耗 (付费抽): {s['pooled_paid_per_6']:>8.2f} 抽")
+        print(f"每个 6 星平均消耗 (总抽数): {s['pooled_total_per_6']:>8.2f} 抽")
+        print("-" * 50)
+        print(f"每个 UP 平均消耗 (付费抽):  {s['pooled_paid_per_up']:>8.2f} 抽")
+        print(f"每个 UP 平均消耗 (总抽数):  {s['pooled_total_per_up']:>8.2f} 抽")
+        print("-" * 50)
+        print(f"每轮平均 总抽/UP:           {s['avg_total_per_up_per_sim']:>8.2f} 抽")
+        print(f"每轮平均 总抽/6星:          {s['avg_total_per_6_per_sim']:>8.2f} 抽")
+        print("-" * 50)
+        print(f"武库/付费抽:                {s['avg_weapon_token_per_paid']:>8.2f}")
+        print("=" * 50)
+
+    def plot_pull_and_outcome_distributions(self, save_path=None):
+        """Plot histograms of total pulls, paid pulls, UP count, and pulls-per-UP across sims."""
+        import matplotlib.pyplot as plt
+        import matplotlib
+
+        matplotlib.rcParams["font.sans-serif"] = ["Arial Unicode MS", "SimHei", "DejaVu Sans"]
+        matplotlib.rcParams["axes.unicode_minus"] = False
+
+        s = self.aggregate_pull_cost_stats()
+
+        fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+        fig.suptitle(f"抽卡模拟分布 ({s['rounds']} 轮)", fontsize=16)
+
+        # 1. Total pulls distribution
+        ax = axes[0, 0]
+        ax.hist(s["_totals"], bins=40, edgecolor="black", alpha=0.7, color="steelblue")
+        ax.axvline(s["avg_total_pulls"], color="red", linestyle="--", label=f"均值: {s['avg_total_pulls']:.1f}")
+        ax.set_title("总抽数分布")
+        ax.set_xlabel("总抽数")
+        ax.set_ylabel("频次")
+        ax.legend()
+
+        # 2. Paid pulls distribution
+        ax = axes[0, 1]
+        ax.hist(s["_paids"], bins=40, edgecolor="black", alpha=0.7, color="orange")
+        ax.axvline(s["avg_paid_pulls"], color="red", linestyle="--", label=f"均值: {s['avg_paid_pulls']:.1f}")
+        ax.set_title("付费抽数分布")
+        ax.set_xlabel("付费抽数")
+        ax.set_ylabel("频次")
+        ax.legend()
+
+        # 3. UP count distribution
+        ax = axes[1, 0]
+        up_counts = s["_up_counts"]
+        bins_up = range(min(up_counts), max(up_counts) + 2)
+        ax.hist(up_counts, bins=bins_up, edgecolor="black", alpha=0.7, color="mediumpurple", align="left")
+        ax.axvline(s["avg_up_count"], color="red", linestyle="--", label=f"均值: {s['avg_up_count']:.2f}")
+        ax.set_title("UP获取数分布")
+        ax.set_xlabel("UP数量")
+        ax.set_ylabel("频次")
+        ax.legend()
+
+        # 4. Avg total pulls per UP distribution
+        ax = axes[1, 1]
+        if s["_avg_total_per_up"]:
+            ax.hist(s["_avg_total_per_up"], bins=40, edgecolor="black", alpha=0.7, color="seagreen")
+            mean_val = statistics.mean(s["_avg_total_per_up"])
+            ax.axvline(mean_val, color="red", linestyle="--", label=f"均值: {mean_val:.1f}")
+            ax.set_title("每UP平均总抽数分布")
+            ax.set_xlabel("总抽数/UP")
+            ax.set_ylabel("频次")
+            ax.legend()
+        else:
+            ax.text(0.5, 0.5, "无UP数据", ha="center", va="center", transform=ax.transAxes)
+
+        plt.tight_layout()
+        if save_path:
+            plt.savefig(save_path, dpi=150)
+            print(f"图表已保存至: {save_path}")
+        plt.show()
 
 
 if __name__ == "__main__":
-    # # --- 测试 1: 看看单次的运气和 display 表现 ---
-    print("\n>>> 执行单次模拟测试 <<<")
-    strat_multi = MyStrat2(target_up_total=1, max_paid_pulls=10000)
-    sim_multi = EndfieldGacha(strat_multi, free_per_banner=5)
-    sim_multi.set_initial_state(pity_count=15, banner_pulls=0)
-    report_single = sim_multi.simulate()
-    sim_multi.display(report_single)
-    ct = 0
-    for i in report_single['history']:
-        print(i)
-        ct+=1
-        if ct%20 == 0:
-            input()
-
-    # --- 测试 2: 看看一万次的多轮数学期望 ---
-    # print("\n>>> 执行多轮期望测试1 <<<")
-    # strat_multi = S60(target_up_total=1, max_paid_pulls=10000)
-    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=0)
-    # sim_multi.set_initial_state(pity_count=0, banner_pulls=0)
-    # sim_multi.multiple_sims(rounds=10000)
-
-    # print("\n>>> 执行多轮期望测试1v2 <<<")
-    # strat_multi = SUP(target_up_total=1, max_paid_pulls=10000)
-    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=5)
-    # sim_multi.set_initial_state(pity_count=0, banner_pulls=0)
-    # sim_multi.multiple_sims(rounds=10000)
-
-    # print("\n>>> 执行多轮期望测试2 <<<")
-    # strat_multi = S30(target_up_total=1, max_paid_pulls=10000)
-    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=5)
-    # sim_multi.set_initial_state(pity_count=0, banner_pulls=0)
-    # sim_multi.multiple_sims(rounds=10000)
-
-    # print("\n>>> 执行多轮期望测试1 <<<")
-    # strat_multi = MyStrat1(target_up_total=1, max_paid_pulls=10000)
-    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=5)
-    # sim_multi.set_initial_state(pity_count=15, banner_pulls=0)
-    # sim_multi.multiple_sims(rounds=10000)
-
-    # print("\n>>> 执行多轮期望测试2 <<<")
+    # --- 单次模拟测试 ---
+    # print("\n>>> 执行单次模拟测试 <<<")
     # strat_multi = MyStrat2(target_up_total=1, max_paid_pulls=10000)
     # sim_multi = EndfieldGacha(strat_multi, free_per_banner=5)
     # sim_multi.set_initial_state(pity_count=15, banner_pulls=0)
-    # sim_multi.multiple_sims(rounds=10000)
+    # report_single = sim_multi.simulate()
+
+    # analyzer = GachaAnalyzer(report_single)
+    # analyzer.print_single_sim_pull_cost()
+
+    # ct = 0
+    # for i in report_single.history:
+    #     print(i)
+    #     ct+=1
+    #     if ct%20 == 0:
+    #         input()
+
+    # --- 多轮模拟测试 ---
+    print("\n>>> 执行多轮期望测试 <<<")
+    strat_multi = MyStrat2(target_up_total=1, max_paid_pulls=10000)
+    sim_multi = EndfieldGacha(strat_multi, free_per_banner=5)
+    sim_multi.set_initial_state(pity_count=15, banner_pulls=0)
+    reports = sim_multi.multiple_sims(rounds=10000)
+    analyzer = GachaAnalyzer(reports)
+    analyzer.print_multi_sim_pull_cost()
+    analyzer.plot_pull_and_outcome_distributions()
