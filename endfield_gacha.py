@@ -31,6 +31,7 @@ Avg = sum([gacha_pdf[i - 1] * i for i in range(1, 81)])
 import random
 import statistics
 import copy
+from turtle import pen
 
 
 class Strategy:
@@ -52,18 +53,40 @@ class S60(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
         self.target_up_total = target_up_total
         self.max_paid_pulls = max_paid_pulls
-        self.bct = 10
+        self.bct = 20
 
     def next_gacha(
         self, banner_id, banner_pulls, pity_count, up_count_total, paid_pulls_total
     ):
         if self.bct <= 0:
             return 0
+        if self.bct <= 10:
+            self.bct -= 1
+            if self.bct <= 0:
+                return 0
+            return 2
         if banner_pulls >= 60:
             self.bct -= 1
             return 2
         return 1
 
+class S30(Strategy):
+    def __init__(self, target_up_total=1, max_paid_pulls=1000):
+        self.target_up_total = target_up_total
+        self.max_paid_pulls = max_paid_pulls
+        self.bct = 20
+
+    def next_gacha(
+        self, banner_id, banner_pulls, pity_count, up_count_total, paid_pulls_total
+    ):
+        if self.bct <= 0:
+            return 0
+        if banner_pulls >= 30:
+            self.bct -= 1
+            if self.bct <= 0:
+                return 0
+            return 2
+        return 1
 
 class SUP(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
@@ -95,7 +118,7 @@ class SUP(Strategy):
             return 2
 
 
-class S30(Strategy):
+class Swisdom(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
         self.target_up_total = target_up_total
         self.max_paid_pulls = max_paid_pulls
@@ -180,17 +203,61 @@ class MyStrat2(Strategy):
         return 1
 
 
+
+class MyStrat3(Strategy):
+    # when already win at 30, should I get to 60
+    def __init__(self, target_up_total=1, max_paid_pulls=1000):
+        self.target_up_total = target_up_total
+        self.max_paid_pulls = max_paid_pulls
+        self.passed_one = 0
+        self.ucc = 0
+
+    def next_gacha(
+        self, banner_id, banner_pulls, pity_count, up_count_total, paid_pulls_total
+    ):
+        if not self.passed_one and banner_pulls<60:
+            return 1
+        if not self.passed_one:
+            self.passed_one = 1
+            self.ucc = up_count_total
+            return 2
+        if self.ucc == up_count_total:
+            return 1
+        return 0
+
+
+class MyStrat4(Strategy):
+    # when already win at 30, should I get to 60
+    def __init__(self, target_up_total=1, max_paid_pulls=1000):
+        self.target_up_total = target_up_total
+        self.max_paid_pulls = max_paid_pulls
+        self.passed_one = 0
+        self.ucc = 0
+
+    def next_gacha(
+        self, banner_id, banner_pulls, pity_count, up_count_total, paid_pulls_total
+    ):
+        if not self.passed_one:
+            self.passed_one = 1
+            self.ucc = up_count_total
+            return 2
+        if self.ucc == up_count_total:
+            return 1
+        return 0
+
+
 class GachaReport:
     """Raw data from a single gacha simulation run."""
-    __slots__ = ("paid", "free", "total", "weapon_token", "inv", "history")
+    __slots__ = ("paid", "free", "total", "weapon_token", "inv", "history", "pending_free")
 
-    def __init__(self, paid, free, weapon_token, inv, history):
+    def __init__(self, paid, free, weapon_token, inv, history, pending_free):
         self.paid = paid
         self.free = free
         self.total = paid + free
         self.weapon_token = weapon_token
         self.inv = inv
         self.history = history
+        self.pending_free = pending_free
 
     @property
     def up_count(self):
@@ -210,15 +277,19 @@ class EndfieldGacha:
         self.initial_banner_pulls = 0
         self.initial_up_obtained = False
         self.initial_paid_count = 0
+        self.initial_pending_bonus = 0
+        self.start_with_new_banner = False
         self.reset()
 
     def set_initial_state(
-        self, pity_count=0, banner_pulls=0, paid_count=0, up_obtained=False
+        self, pity_count=0, banner_pulls=0, paid_count=0, up_obtained=False, pending_bonus = 0, start_new_banner=False
     ):
         self.initial_pity = pity_count
         self.initial_banner_pulls = banner_pulls
         self.initial_up_obtained = up_obtained
         self.initial_paid_count = paid_count
+        self.initial_pending_bonus = pending_bonus
+        self.start_with_new_banner = start_new_banner
         self.reset()
 
     def reset(self):
@@ -237,7 +308,9 @@ class EndfieldGacha:
         self.inventory = {"UP": 0, "6": 0, "5": 0, "4": 0}
         self.welfare_30_used = False
         self.welfare_30_pity_count_5_star = 0
-        self.pending_bonus = 0
+        self.pending_bonus = self.initial_pending_bonus
+        if self.start_with_new_banner:
+            self.start_banner()
 
     def _get_current_prob(self, is_pity_contributing):
         base = 0.008
@@ -321,7 +394,7 @@ class EndfieldGacha:
             self.pending_bonus -= 1
 
     def simulate(self):
-        self.start_banner()
+        # self.start_banner()
         while True:
             action = self.strategy.next_gacha(
                 self.banner_id,
@@ -330,17 +403,17 @@ class EndfieldGacha:
                 self.total_up_count,
                 self.paid_count,
             )
+            if self.banner_pulls == 60 and not self.pending_bonus:
+                self.pending_bonus += 10
             if action == 0:
                 break
             if action == 2:
-                if self.banner_pulls >= 60:
-                    self.pending_bonus += 10
                 self.start_banner()
                 continue
 
             self.pull(source_type="Paid", is_pity_contributing=True)
 
-            if self.banner_pulls >= 30 and not self.welfare_30_used:
+            if self.banner_pulls == 30 and not self.welfare_30_used:
                 for _ in range(10):
                     self.pull(source_type="Free_30Gift", is_pity_contributing=False)
                 self.welfare_30_used = True
@@ -367,6 +440,7 @@ class EndfieldGacha:
             weapon_token=self.weapon_token,
             inv=dict(self.inventory),
             history=list(self.pull_history),
+            pending_free=self.pending_bonus
         )
 
     def multiple_sims(self, rounds=1000):
@@ -380,14 +454,19 @@ class EndfieldGacha:
 
 class GachaAnalyzer:
     """Analyzes gacha simulation reports produced by EndfieldGacha."""
+    reports: list[GachaReport]
 
     def __init__(self, reports):
         """Accept a single GachaReport or a list of GachaReports."""
         if isinstance(reports, GachaReport):
             reports = [reports]
         self.reports = reports
+    
+    def print_history(self, report_idx=-1):
+        for pull in self.reports[report_idx].history:
+            print(pull)
 
-    def aggregate_pull_cost_stats(self):
+    def _aggregate_pull_cost_stats(self):
         """Compute per-sim averages and pooled pull costs across all reports."""
         n = len(self.reports)
 
@@ -422,6 +501,7 @@ class GachaAnalyzer:
             "avg_weapon_token_per_paid": (
                 sum(r.weapon_token for r in self.reports) / agg_paid if agg_paid > 0 else 0
             ),
+            "avg_pending_free": (sum(r.pending_free for r in self.reports)/n),
             # raw lists for graphing
             "_totals": totals,
             "_paids": paids,
@@ -445,11 +525,12 @@ class GachaAnalyzer:
         print(f"平均出UP耗时 (总投入/出货): {r.total / up:.2f} 抽" if up else "无UP")
         print(f"平均出UP成本 (付费/出货): {r.paid / up:.2f} 抽" if up else "")
         print(f"武库/付费抽: {r.weapon_token / r.paid:.2f}" if r.paid else "")
+        print(f"pending bonus: {r.pending_free} 抽")
         print("=" * 50)
 
     def print_multi_sim_pull_cost(self):
         """Print aggregated pull cost statistics across all simulation runs."""
-        s = self.aggregate_pull_cost_stats()
+        s = self._aggregate_pull_cost_stats()
         print(f"\n{' 多轮模拟统计报告 ':=^50}")
         print(f"模拟轮数: {s['rounds']:,} 轮")
         print("-" * 50)
@@ -468,6 +549,8 @@ class GachaAnalyzer:
         print(f"每轮平均 总抽/6星:          {s['avg_total_per_6_per_sim']:>8.2f} 抽")
         print("-" * 50)
         print(f"武库/付费抽:                {s['avg_weapon_token_per_paid']:>8.2f}")
+        print("-" * 50)
+        print(f"pending bonus:             {s['avg_pending_free']:>8.2f} 抽")
         print("=" * 50)
 
     def plot_pull_and_outcome_distributions(self, save_path=None):
@@ -478,7 +561,7 @@ class GachaAnalyzer:
         matplotlib.rcParams["font.sans-serif"] = ["Arial Unicode MS", "SimHei", "DejaVu Sans"]
         matplotlib.rcParams["axes.unicode_minus"] = False
 
-        s = self.aggregate_pull_cost_stats()
+        s = self._aggregate_pull_cost_stats()
 
         fig, axes = plt.subplots(2, 2, figsize=(14, 10))
         fig.suptitle(f"抽卡模拟分布 ({s['rounds']} 轮)", fontsize=16)
@@ -551,11 +634,32 @@ if __name__ == "__main__":
     #         input()
 
     # --- 多轮模拟测试 ---
-    print("\n>>> 执行多轮期望测试 <<<")
-    strat_multi = MyStrat2(target_up_total=1, max_paid_pulls=10000)
-    sim_multi = EndfieldGacha(strat_multi, free_per_banner=5)
-    sim_multi.set_initial_state(pity_count=15, banner_pulls=0)
+    # print("\n>>> 执行多轮期望测试 <<<")
+    strat_multi = S60(target_up_total=10, max_paid_pulls=10000)
+    sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
+    sim_multi.set_initial_state(pity_count=0, banner_pulls=0, start_new_banner=True, pending_bonus=0)
     reports = sim_multi.multiple_sims(rounds=10000)
     analyzer = GachaAnalyzer(reports)
     analyzer.print_multi_sim_pull_cost()
     analyzer.plot_pull_and_outcome_distributions()
+
+    # print("\n>>> 执行单次模拟测试 <<<")
+    # strat_multi = MyStrat3(target_up_total=1, max_paid_pulls=10000)
+    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
+    # sim_multi.set_initial_state(pity_count=0, banner_pulls=32, up_obtained=1)
+    # report_single = sim_multi.multiple_sims()
+
+    # analyzer = GachaAnalyzer(report_single)
+    # analyzer.print_multi_sim_pull_cost()
+    # analyzer.plot_pull_and_outcome_distributions()
+
+    # strat_multi = MyStrat4(target_up_total=1, max_paid_pulls=10000)
+    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
+    # sim_multi.set_initial_state(pity_count=0, banner_pulls=32, up_obtained=1)
+    # report_single = sim_multi.multiple_sims()
+
+    # analyzer = GachaAnalyzer(report_single)
+    # analyzer.print_multi_sim_pull_cost()
+    # analyzer.plot_pull_and_outcome_distributions()
+    
+
