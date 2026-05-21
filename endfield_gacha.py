@@ -31,7 +31,6 @@ Avg = sum([gacha_pdf[i - 1] * i for i in range(1, 81)])
 import random
 import statistics
 import copy
-from turtle import pen
 
 
 class Strategy:
@@ -466,16 +465,28 @@ class GachaAnalyzer:
         for pull in self.reports[report_idx].history:
             print(pull)
 
+    @staticmethod
+    def _stat_summary(data):
+        if not data:
+            return {"avg": 0, "p50": 0, "p75": 0, "p90": 0}
+        avg = statistics.mean(data)
+        if len(data) == 1:
+            v = data[0]
+            return {"avg": avg, "p50": v, "p75": v, "p90": v}
+        qs = statistics.quantiles(data, n=100, method="inclusive")
+        return {"avg": avg, "p50": qs[49], "p75": qs[74], "p90": qs[89]}
+
     def _aggregate_pull_cost_stats(self):
-        """Compute per-sim averages and pooled pull costs across all reports."""
+        """Compute per-sim distribution stats and pooled pull costs across all reports."""
         n = len(self.reports)
 
         totals = [r.total for r in self.reports]
         paids = [r.paid for r in self.reports]
         up_counts = [r.up_count for r in self.reports]
         six_counts = [r.six_star_count for r in self.reports]
-        avg_total_per_up = [r.total / r.up_count for r in self.reports if r.up_count > 0]
-        avg_total_per_6 = [r.total / r.six_star_count for r in self.reports if r.six_star_count > 0]
+        total_per_up = [r.total / r.up_count for r in self.reports if r.up_count > 0]
+        total_per_6 = [r.total / r.six_star_count for r in self.reports if r.six_star_count > 0]
+        pending_frees = [r.pending_free for r in self.reports]
 
         agg_paid = sum(paids)
         agg_total = sum(totals)
@@ -484,31 +495,27 @@ class GachaAnalyzer:
 
         return {
             "rounds": n,
-            "avg_total_pulls": agg_total / n,
-            "avg_paid_pulls": agg_paid / n,
-            "avg_up_count": agg_up / n,
-            "avg_six_star_count": agg_6 / n,
+            "total_pulls": self._stat_summary(totals),
+            "paid_pulls": self._stat_summary(paids),
+            "up_count": self._stat_summary(up_counts),
+            "six_star_count": self._stat_summary(six_counts),
+            "total_per_up": self._stat_summary(total_per_up),
+            "total_per_6": self._stat_summary(total_per_6),
+            "pending_free": self._stat_summary(pending_frees),
             "pooled_paid_per_6": agg_paid / agg_6 if agg_6 > 0 else 0,
             "pooled_total_per_6": agg_total / agg_6 if agg_6 > 0 else 0,
             "pooled_paid_per_up": agg_paid / agg_up if agg_up > 0 else 0,
             "pooled_total_per_up": agg_total / agg_up if agg_up > 0 else 0,
-            "avg_total_per_up_per_sim": (
-                statistics.mean(avg_total_per_up) if avg_total_per_up else 0
-            ),
-            "avg_total_per_6_per_sim": (
-                statistics.mean(avg_total_per_6) if avg_total_per_6 else 0
-            ),
-            "avg_weapon_token_per_paid": (
+            "weapon_token_per_paid": (
                 sum(r.weapon_token for r in self.reports) / agg_paid if agg_paid > 0 else 0
             ),
-            "avg_pending_free": (sum(r.pending_free for r in self.reports)/n),
             # raw lists for graphing
             "_totals": totals,
             "_paids": paids,
             "_up_counts": up_counts,
             "_six_counts": six_counts,
-            "_avg_total_per_up": avg_total_per_up,
-            "_avg_total_per_6": avg_total_per_6,
+            "_total_per_up": total_per_up,
+            "_total_per_6": total_per_6,
         }
 
     def print_single_sim_pull_cost(self, index=0):
@@ -516,42 +523,63 @@ class GachaAnalyzer:
         r = self.reports[index]
         up = r.up_count
         six = r.six_star_count
-        print(f"\n{' 终末地抽卡分项统计 ':=^50}")
-        print(f"付费抽: {r.paid:<10} | 免费抽: {r.free}")
-        print(f"6星总数: {six} (UP: {up})")
-        print("-" * 50)
-        print(f"平均出6星耗时 (总投入/出货): {r.total / six:.2f} 抽" if six else "无6星")
-        print(f"平均出6星成本 (付费/出货): {r.paid / six:.2f} 抽" if six else "")
-        print(f"平均出UP耗时 (总投入/出货): {r.total / up:.2f} 抽" if up else "无UP")
-        print(f"平均出UP成本 (付费/出货): {r.paid / up:.2f} 抽" if up else "")
-        print(f"武库/付费抽: {r.weapon_token / r.paid:.2f}" if r.paid else "")
-        print(f"pending bonus: {r.pending_free} 抽")
-        print("=" * 50)
+        W = 52
+        print(f"\n{' 终末地抽卡分项统计 ':=^{W}}")
+        print(f"  付费抽: {r.paid:<8}  免费抽: {r.free}")
+        print(f"  6星总数: {six}  (UP: {up})")
+        print("-" * W)
+        if six:
+            print(f"  {'总抽/6星':30s} {r.total / six:>8.2f} 抽")
+            print(f"  {'付费抽/6星':30s} {r.paid / six:>8.2f} 抽")
+        else:
+            print("  无6星")
+        if up:
+            print(f"  {'总抽/UP':30s} {r.total / up:>8.2f} 抽")
+            print(f"  {'付费抽/UP':30s} {r.paid / up:>8.2f} 抽")
+        else:
+            print("  无UP")
+        if r.paid:
+            print(f"  {'武库/付费抽':30s} {r.weapon_token / r.paid:>8.2f}")
+        print(f"  {'pending bonus':30s} {r.pending_free:>8} 抽")
+        print("=" * W)
 
     def print_multi_sim_pull_cost(self):
         """Print aggregated pull cost statistics across all simulation runs."""
         s = self._aggregate_pull_cost_stats()
-        print(f"\n{' 多轮模拟统计报告 ':=^50}")
-        print(f"模拟轮数: {s['rounds']:,} 轮")
-        print("-" * 50)
-        print(f"平均总抽数/轮:              {s['avg_total_pulls']:>8.2f} 抽")
-        print(f"平均付费抽/轮:              {s['avg_paid_pulls']:>8.2f} 抽")
-        print(f"平均UP数/轮:                {s['avg_up_count']:>8.2f}")
-        print(f"平均6星数/轮:               {s['avg_six_star_count']:>8.2f}")
-        print("-" * 50)
-        print(f"每个 6 星平均消耗 (付费抽): {s['pooled_paid_per_6']:>8.2f} 抽")
-        print(f"每个 6 星平均消耗 (总抽数): {s['pooled_total_per_6']:>8.2f} 抽")
-        print("-" * 50)
-        print(f"每个 UP 平均消耗 (付费抽):  {s['pooled_paid_per_up']:>8.2f} 抽")
-        print(f"每个 UP 平均消耗 (总抽数):  {s['pooled_total_per_up']:>8.2f} 抽")
-        print("-" * 50)
-        print(f"每轮平均 总抽/UP:           {s['avg_total_per_up_per_sim']:>8.2f} 抽")
-        print(f"每轮平均 总抽/6星:          {s['avg_total_per_6_per_sim']:>8.2f} 抽")
-        print("-" * 50)
-        print(f"武库/付费抽:                {s['avg_weapon_token_per_paid']:>8.2f}")
-        print("-" * 50)
-        print(f"pending bonus:             {s['avg_pending_free']:>8.2f} 抽")
-        print("=" * 50)
+        W = 60
+
+        def row(label, key, unit=""):
+            d = s[key]
+            u = f" {unit}" if unit else ""
+            print(
+                f"  {label:<22}"
+                f"  {d['avg']:>8.2f}"
+                f"  {d['p50']:>8.2f}"
+                f"  {d['p75']:>8.2f}"
+                f"  {d['p90']:>8.2f}"
+                f"{u}"
+            )
+
+        print(f"\n{' 多轮模拟统计报告 ':=^{W}}")
+        print(f"  模拟轮数: {s['rounds']:,} 轮")
+        print("-" * W)
+        print(f"  {'每轮分布':<22}  {'avg':>8}  {'p50':>8}  {'p75':>8}  {'p90':>8}")
+        print(f"  {'':-<22}  {'---':>8}  {'---':>8}  {'---':>8}  {'---':>8}")
+        row("总抽数",            "total_pulls",    "抽")
+        row("付费抽",            "paid_pulls",     "抽")
+        row("UP 数",             "up_count")
+        row("6 星数",            "six_star_count")
+        row("总抽/UP  (per sim)", "total_per_up",  "抽")
+        row("总抽/6星 (per sim)", "total_per_6",   "抽")
+        row("pending bonus",    "pending_free",   "抽")
+        print("-" * W)
+        print("  合并统计 (pooled)")
+        print(f"  {'每 6 星消耗 (付费抽)':<26} {s['pooled_paid_per_6']:>8.2f} 抽")
+        print(f"  {'每 6 星消耗 (总抽数)':<26} {s['pooled_total_per_6']:>8.2f} 抽")
+        print(f"  {'每 UP 消耗 (付费抽)':<26} {s['pooled_paid_per_up']:>8.2f} 抽")
+        print(f"  {'每 UP 消耗 (总抽数)':<26} {s['pooled_total_per_up']:>8.2f} 抽")
+        print(f"  {'武库/付费抽':<26} {s['weapon_token_per_paid']:>8.2f}")
+        print("=" * W)
 
     def plot_pull_and_outcome_distributions(self, save_path=None):
         """Plot histograms of total pulls, paid pulls, UP count, and pulls-per-UP across sims."""
@@ -569,7 +597,7 @@ class GachaAnalyzer:
         # 1. Total pulls distribution
         ax = axes[0, 0]
         ax.hist(s["_totals"], bins=40, edgecolor="black", alpha=0.7, color="steelblue")
-        ax.axvline(s["avg_total_pulls"], color="red", linestyle="--", label=f"均值: {s['avg_total_pulls']:.1f}")
+        ax.axvline(s["total_pulls"]["avg"], color="red", linestyle="--", label=f"均值: {s['total_pulls']['avg']:.1f}")
         ax.set_title("总抽数分布")
         ax.set_xlabel("总抽数")
         ax.set_ylabel("频次")
@@ -578,7 +606,7 @@ class GachaAnalyzer:
         # 2. Paid pulls distribution
         ax = axes[0, 1]
         ax.hist(s["_paids"], bins=40, edgecolor="black", alpha=0.7, color="orange")
-        ax.axvline(s["avg_paid_pulls"], color="red", linestyle="--", label=f"均值: {s['avg_paid_pulls']:.1f}")
+        ax.axvline(s["paid_pulls"]["avg"], color="red", linestyle="--", label=f"均值: {s['paid_pulls']['avg']:.1f}")
         ax.set_title("付费抽数分布")
         ax.set_xlabel("付费抽数")
         ax.set_ylabel("频次")
@@ -589,7 +617,7 @@ class GachaAnalyzer:
         up_counts = s["_up_counts"]
         bins_up = range(min(up_counts), max(up_counts) + 2)
         ax.hist(up_counts, bins=bins_up, edgecolor="black", alpha=0.7, color="mediumpurple", align="left")
-        ax.axvline(s["avg_up_count"], color="red", linestyle="--", label=f"均值: {s['avg_up_count']:.2f}")
+        ax.axvline(s["up_count"]["avg"], color="red", linestyle="--", label=f"均值: {s['up_count']['avg']:.2f}")
         ax.set_title("UP获取数分布")
         ax.set_xlabel("UP数量")
         ax.set_ylabel("频次")
@@ -597,9 +625,9 @@ class GachaAnalyzer:
 
         # 4. Avg total pulls per UP distribution
         ax = axes[1, 1]
-        if s["_avg_total_per_up"]:
-            ax.hist(s["_avg_total_per_up"], bins=40, edgecolor="black", alpha=0.7, color="seagreen")
-            mean_val = statistics.mean(s["_avg_total_per_up"])
+        if s["_total_per_up"]:
+            ax.hist(s["_total_per_up"], bins=40, edgecolor="black", alpha=0.7, color="seagreen")
+            mean_val = statistics.mean(s["_total_per_up"])
             ax.axvline(mean_val, color="red", linestyle="--", label=f"均值: {mean_val:.1f}")
             ax.set_title("每UP平均总抽数分布")
             ax.set_xlabel("总抽数/UP")
@@ -635,31 +663,29 @@ if __name__ == "__main__":
 
     # --- 多轮模拟测试 ---
     # print("\n>>> 执行多轮期望测试 <<<")
-    strat_multi = S60(target_up_total=10, max_paid_pulls=10000)
-    sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
-    sim_multi.set_initial_state(pity_count=0, banner_pulls=0, start_new_banner=True, pending_bonus=0)
-    reports = sim_multi.multiple_sims(rounds=10000)
-    analyzer = GachaAnalyzer(reports)
-    analyzer.print_multi_sim_pull_cost()
-    analyzer.plot_pull_and_outcome_distributions()
+    # strat_multi = S60(target_up_total=10, max_paid_pulls=10000)
+    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
+    # sim_multi.set_initial_state(pity_count=0, banner_pulls=0, start_new_banner=True, pending_bonus=0)
+    # reports = sim_multi.multiple_sims(rounds=10000)
+    # analyzer = GachaAnalyzer(reports)
+    # analyzer.print_multi_sim_pull_cost()
+    # analyzer.plot_pull_and_outcome_distributions()
 
     # print("\n>>> 执行单次模拟测试 <<<")
-    # strat_multi = MyStrat3(target_up_total=1, max_paid_pulls=10000)
-    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
-    # sim_multi.set_initial_state(pity_count=0, banner_pulls=32, up_obtained=1)
-    # report_single = sim_multi.multiple_sims()
+    strat_multi = MyStrat3(target_up_total=1, max_paid_pulls=10000)
+    sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
+    sim_multi.set_initial_state(pity_count=0, banner_pulls=32, up_obtained=1)
+    report_single = sim_multi.multiple_sims()
 
-    # analyzer = GachaAnalyzer(report_single)
-    # analyzer.print_multi_sim_pull_cost()
+    analyzer = GachaAnalyzer(report_single)
+    analyzer.print_multi_sim_pull_cost()
     # analyzer.plot_pull_and_outcome_distributions()
 
-    # strat_multi = MyStrat4(target_up_total=1, max_paid_pulls=10000)
-    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
-    # sim_multi.set_initial_state(pity_count=0, banner_pulls=32, up_obtained=1)
-    # report_single = sim_multi.multiple_sims()
+    strat_multi = MyStrat4(target_up_total=1, max_paid_pulls=10000)
+    sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
+    sim_multi.set_initial_state(pity_count=0, banner_pulls=32, up_obtained=1)
+    report_single = sim_multi.multiple_sims()
 
-    # analyzer = GachaAnalyzer(report_single)
-    # analyzer.print_multi_sim_pull_cost()
+    analyzer = GachaAnalyzer(report_single)
+    analyzer.print_multi_sim_pull_cost()
     # analyzer.plot_pull_and_outcome_distributions()
-    
-
