@@ -14,7 +14,7 @@ if A_Args.Length >= 1 {
     }
 }
 
-respawn := 1240 ; 1410 ;1240
+respawn := 1240 ;1060 ; 1240 ; 1410
 
 ; 配置需要输入的序列（在此修改内容）
 avsp_sequence := "fhgytrewaw edtwewwxay trsewwdetw weagyetr"
@@ -37,8 +37,19 @@ bdw_sequence := "zfhgytrewd wewtaexwzw ytrsadwewt wzewgaytre dwwe"
 t6v1_sequence := "wfhyztewwre awtdegyzew tsreaxwetd wyzewwatew r"
 t8v1_sequence := "fhytaewzret w.2egaydxezt .2eaw.2ecsyrda twz.4we.2www.3fh teacrdzgyt"
 t8v1_sequence_v2 := "fhytaewzret w.2egaydxezt .2eaw.2ecsyrdt wae.4wz.2w.2fhte acrdzgyt"
+t8v2_sequence := "wvytaewzret w.2egayde.4zt e.3awecryte.4a dxwzewtre wgavzcy"  ; last seg unverified
+t8v3_sequence := "wvytaewzret w.2gayedtwze x.5awtcrydwe.4w.3a tezwewtre wgavzcy"
 
-sequence := t8v1_sequence_v2
+t9v1_sequence := "wvytaewzret w.2egayde.4zt e.3awecryte.4a dxwzewtre wgvcayztrwe"  ; mirrors t8v2
+
+
+
+typo_sequence := "vyratewzdew agyctrewzxewatew"
+typo_sequence_v2 := "vyratewzdew atycwrewzxtwaeww"
+fad_sequence := "vyrteawdezw teaywcrtedawexztew"
+
+
+default_sequence := t8v2_sequence
 
 atk_prio_farm := "zfgyterdw"
 atk_prio := "zfgytredaxw"
@@ -69,7 +80,7 @@ hp_bar_left := 2203
 hp_bar_right := 2800
 last_hit_x := 2203 * (1-last_hit_percentile) + 2800 * last_hit_percentile
 
-getwinsize
+getwinsize()
 
 
 ^+`::
@@ -77,11 +88,13 @@ getwinsize
 
 End::{
     Send "{Right}"
-    Sleep 300
-    play_sequence
+    Sleep 200
+    play_sequence(t9v1_sequence, False)
+    ;auto_regular
+    ;snypo
 }
 
-Down::{
+^+End::{
     checkactive
     global running:=false
     
@@ -95,15 +108,11 @@ Down::{
 
 
 PgDn::{
-    switchadvloadout
+    snypo()
 }
 
 PgUp::{
-    msgbox hasenemy()
-}
-
-Up::{
-    auto_regular
+    beuc_sl()
 }
 
 Insert::{
@@ -141,7 +150,82 @@ Home::{
     }
 }
 
+test(){
+    if 1 == 1 {
+        a := default_sequence
+        msgbox a
+    }
+}
+
 ; main functions
+snypo(){
+    Loop {
+        move_to_last_zone
+        keyslp "{Left}", 50
+        keyslp "{Left}", 50
+        refresh_till_boss
+        play_sequence(fad_sequence, True)
+        move_to_safe_zone
+        Sleep 1000
+        send_key_prio("xd")
+        Sleep 9000
+        keyslp "r", 1000
+        if not is_bm_active() {
+            keyslp "c", 1000
+        }
+        keyslp "g", 9000
+    }
+}
+
+beuc_sl(savefile:="beuc.txt"){
+    ih := InputHook("L1")
+    Loop 30 {
+        switchpage(4)
+        is_left := 1
+        Loop (A_Index-1){
+            if (Mod(A_Index, 2) == 1) {
+                keyslp "{Left}", 30
+            } else {
+                keyslp "{Right}", 30
+            }
+        }
+        switchpage(2)
+        clkslp 1877, 783
+        switchpage(5)
+        ih.Start()
+        ih.Wait()
+        if (ih.Input != "n") {
+            break
+        }
+        load_save(savefile)
+        sleep 200
+    }
+}
+
+load_save(savefile) {
+    clkslp 370, 1445
+    send savefile
+    send "{Enter}"
+    sleep 100
+    clkslp 896, 1679
+}
+
+is_bm_active(){
+    c1 := PixelGetColor(1728*W/W_base,578*W/W_base,"RGB")   ;000000 ->Max HP/HP Regen
+    if (c1 = 0xffeb04) {
+        return True
+    }
+    return False
+}
+
+move_to_last_zone(){
+    clkslp 2815, 634, 0, "Right"
+}
+
+move_to_safe_zone(){
+    clkslp 2205, 634, 0, "Right"
+}
+
 refresh_till_target_boss(){
     Loop {
         Sleep 200
@@ -156,7 +240,7 @@ refresh_till_target_boss(){
     }
 }
 
-refresh_till_boss(){
+refresh_till_boss(send_key:=False){
     Loop {
         Sleep 200
         if hasenemy() and isboss() {
@@ -165,7 +249,9 @@ refresh_till_boss(){
         if hasenemy() and !isboss() {
             keyslp "{Left}", 50
             keyslp "{Right}", 50
-            send_key_prio("rdx")
+            if send_key {
+                send_key_prio("rdx")
+            }
             continue
         }
     }
@@ -191,9 +277,9 @@ idle_boss_only(switch_dc:=False){
         if hasenemy() and !isboss() {
             keyslp "{Left}", 50
             keyslp "{Right}", 50
-            keyslp "q", 20
-            keyslp "d", 20
-            keyslp "q", 20
+            keyslp "q", 500
+            keyslp "d", 300
+            keyslp "q", 30
             continue
         }
         if switch_dc and isboss() and islasthit() and !dcdigger {
@@ -211,7 +297,7 @@ idle_boss_only(switch_dc:=False){
     }
 }
 
-play_sequence(){
+play_sequence(sequence:="", stop_on_kill:=False){
     global 
     count := 0
     running := true
@@ -222,8 +308,12 @@ play_sequence(){
     checkactive
     getwinsize
     
+    if sequence == "" {
+        sequence := default_sequence
+    }
+    
     Loop Parse sequence {
-        if !running {
+        if !running or (stop_on_kill and !hasenemy()) {
             break
         }
         if (A_LoopField == " ") {
@@ -438,6 +528,10 @@ isparalyzed(){
         return False
     }
     return True
+}
+
+switchpage(idx:=0, ms:=100){
+    clkslp 700, (-13+81*idx), ms
 }
 
 switchadvdigger(){
