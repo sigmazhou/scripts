@@ -224,9 +224,11 @@ Sample2DNormalDistributionBounded(mean:=[0,0], stddev:=[1,1], maxdev?, lower?, u
 }
 
 GenerateBezierPath(startP, endP, numSegments) {
+    divStd := 7.5
+    divMax := 2.5
     dist := DistanceOf(startP, endP)
     ctrlP := ArrAdd(MiddlePointWeighted(startP, endP, Random(0.2, 0.8))
-        , Sample2DNormalDistributionBounded([0,0], [dist/9, dist/9], [dist/3, dist/3]))
+        , Sample2DNormalDistributionBounded([0,0], [dist/divStd, dist/divStd], [dist/divMax, dist/divMax]))
 
     path := [startP]
     Loop numSegments-1 {
@@ -234,7 +236,7 @@ GenerateBezierPath(startP, endP, numSegments) {
         x := (1-t)**2 * startP[1] + 2*(1-t)*t * ctrlP[1] + t**2 * endP[1]
         y := (1-t)**2 * startP[2] + 2*(1-t)*t * ctrlP[2] + t**2 * endP[2]
         p := ArrAdd([x,y], 
-            Sample2DNormalDistributionBounded([0,0], [dist/numSegments/9, dist/numSegments/9], [dist/numSegments/3, dist/numSegments/3]))
+            Sample2DNormalDistributionBounded([0,0], [dist/numSegments/divStd, dist/numSegments/divStd], [dist/numSegments/divMax, dist/numSegments/divMax]))
         path.Push(p)
     }
     path.Push(endP)
