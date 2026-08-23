@@ -741,11 +741,16 @@ class GachaAnalyzer:
 
 # Rough fallback weapon-token-per-pity contribution, used only if
 # estimate_pity_weapon_token_contribution() hasn't been run.
-WEAPON_TOKEN_PER_PITY_PULL = 140
+WEAPON_TOKEN_PER_PITY_PULL = 26
 
 
 def estimate_pity_weapon_token_contribution(
-    strategy=None, free_per_banner=10, pity_range=range(65), rounds=2000
+    strategy=None,
+    free_per_banner=10,
+    pity_range=range(65),
+    rounds=2000,
+    plot=False,
+    save_path=None,
 ):
     """Estimate the weapon-token value of carried-over pity via simulation + linear fit.
 
@@ -764,6 +769,9 @@ def estimate_pity_weapon_token_contribution(
     A line is fit through avg weapon_token vs. starting pity_count; its slope is the
     estimated marginal weapon-token contribution per unit of carried-over pity.
 
+    If plot is True, also plots avg weapon_token vs. starting pity_count with the fitted
+    line overlaid (see plot_pity_weapon_token_contribution).
+
     Returns {"slope", "intercept", "avg_tokens"} where avg_tokens maps pity_count -> average
     total weapon_token earned from that starting pity.
     """
@@ -780,7 +788,50 @@ def estimate_pity_weapon_token_contribution(
     slope, intercept = statistics.linear_regression(
         list(avg_tokens.keys()), list(avg_tokens.values())
     )
-    return {"slope": slope, "intercept": intercept, "avg_tokens": avg_tokens}
+    result = {"slope": slope, "intercept": intercept, "avg_tokens": avg_tokens}
+
+    if plot:
+        plot_pity_weapon_token_contribution(result, save_path=save_path)
+
+    return result
+
+
+def plot_pity_weapon_token_contribution(contribution, save_path=None):
+    """Plot avg weapon_token vs. starting pity_count, with the fitted contribution line.
+
+    contribution: output of estimate_pity_weapon_token_contribution.
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib
+
+    matplotlib.rcParams["font.sans-serif"] = ["Arial Unicode MS", "SimHei", "DejaVu Sans"]
+    matplotlib.rcParams["axes.unicode_minus"] = False
+
+    avg_tokens = contribution["avg_tokens"]
+    pity_counts = sorted(avg_tokens.keys())
+    ys = [avg_tokens[p] for p in pity_counts]
+    fitted = [contribution["intercept"] + contribution["slope"] * p for p in pity_counts]
+
+    _, ax = plt.subplots(figsize=(8, 6))
+    ax.scatter(pity_counts, ys, label="模拟均值", color="steelblue")
+    ax.plot(
+        pity_counts,
+        fitted,
+        color="red",
+        linestyle="--",
+        label=f"拟合直线 (斜率={contribution['slope']:.2f})",
+    )
+    ax.set_title("保底继承数对武库的贡献")
+    ax.set_xlabel("继承保底抽数")
+    ax.set_ylabel("平均武库")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=150)
+        print(f"图表已保存至: {save_path}")
+    plt.show()
 
 
 def analyze_pity_carryover_impact(
@@ -887,7 +938,7 @@ if __name__ == "__main__":
     # analyzer.print_multi_sim_pull_cost()
     # # analyzer.plot_pull_and_outcome_distributions()
 
-    contribution = estimate_pity_weapon_token_contribution()
+    contribution = estimate_pity_weapon_token_contribution(plot=True)
     print(
         f"weapon token / pity contribution factor: {contribution['slope']:.2f} "
         f"(intercept {contribution['intercept']:.2f})"
