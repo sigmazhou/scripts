@@ -51,8 +51,7 @@ class Strategy:
 
 class S60(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
-        self.target_up_total = target_up_total
-        self.max_paid_pulls = max_paid_pulls
+        super().__init__(target_up_total, max_paid_pulls)
         self.bct = 30
 
     def next_gacha(
@@ -73,8 +72,7 @@ class S60(Strategy):
 
 class S60_30_0(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
-        self.target_up_total = target_up_total
-        self.max_paid_pulls = max_paid_pulls
+        super().__init__(target_up_total, max_paid_pulls)
         self.bct = 30
 
     def next_gacha(
@@ -99,8 +97,7 @@ class S60_30_0(Strategy):
 
 class S30(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
-        self.target_up_total = target_up_total
-        self.max_paid_pulls = max_paid_pulls
+        super().__init__(target_up_total, max_paid_pulls)
         self.bct = 30
 
     def next_gacha(
@@ -117,8 +114,7 @@ class S30(Strategy):
 
 class SUP(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
-        self.target_up_total = target_up_total
-        self.max_paid_pulls = max_paid_pulls
+        super().__init__(target_up_total, max_paid_pulls)
         self.bct = 20
         self.b1 = 0
         self.bstate = 1
@@ -147,8 +143,7 @@ class SUP(Strategy):
 
 class SUP_SIMPLE(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
-        self.target_up_total = target_up_total
-        self.max_paid_pulls = max_paid_pulls
+        super().__init__(target_up_total, max_paid_pulls)
         self.curr_up_ct = 0
 
     def next_gacha(
@@ -163,8 +158,7 @@ class SUP_SIMPLE(Strategy):
 
 class Swisdom(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
-        self.target_up_total = target_up_total
-        self.max_paid_pulls = max_paid_pulls
+        super().__init__(target_up_total, max_paid_pulls)
         self.bct = 20
         self.b1 = 0
         self.bstate = 1
@@ -202,8 +196,7 @@ class Swisdom(Strategy):
 
 class MyStrat1(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
-        self.target_up_total = target_up_total
-        self.max_paid_pulls = max_paid_pulls
+        super().__init__(target_up_total, max_paid_pulls)
         self.passonect = 60
 
     def next_gacha(
@@ -225,8 +218,7 @@ class MyStrat1(Strategy):
 
 class MyStrat2(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
-        self.target_up_total = target_up_total
-        self.max_paid_pulls = max_paid_pulls
+        super().__init__(target_up_total, max_paid_pulls)
         self.passonect = 30
 
     def next_gacha(
@@ -250,8 +242,7 @@ class MyStrat2(Strategy):
 class MyStrat3(Strategy):
     # when already win at 30, should I get to 60
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
-        self.target_up_total = target_up_total
-        self.max_paid_pulls = max_paid_pulls
+        super().__init__(target_up_total, max_paid_pulls)
         self.passed_one = 0
         self.ucc = 0
 
@@ -272,8 +263,7 @@ class MyStrat3(Strategy):
 class MyStrat4(Strategy):
     # when already win at 30, should I get to 60
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
-        self.target_up_total = target_up_total
-        self.max_paid_pulls = max_paid_pulls
+        super().__init__(target_up_total, max_paid_pulls)
         self.passed_one = 0
         self.ucc = 0
 
@@ -311,7 +301,40 @@ class GachaReport:
         return self.inv["UP"] + self.inv["6"]
 
 
-class EndfieldGacha:
+class GachaEngine:
+    """Base interface for a gacha simulation model.
+
+    Different models (e.g. EndfieldGacha, SimpleGacha) implement their own pull mechanics
+    but share this interface, so GachaAnalyzer/plotting code can compare them interchangeably
+    -- both produce GachaReport instances.
+    """
+
+    def reset(self) -> None:
+        raise NotImplementedError
+
+    def pull(self, source_type="Paid") -> str:
+        raise NotImplementedError
+
+    def simulate(self) -> GachaReport:
+        raise NotImplementedError
+
+    def generate_report(self) -> GachaReport:
+        raise NotImplementedError
+
+    def multiple_sims(self, rounds=1000) -> list[GachaReport]:
+        """Run multiple simulations and return list of raw reports."""
+        reports = []
+        for _ in range(rounds):
+            self.reset()
+            reports.append(self.simulate())
+        return reports
+
+    def set_initial_state(self, **kwargs) -> None:
+        """Configure starting state before a sim run. Accepted kwargs are model-specific."""
+        raise NotImplementedError
+
+
+class EndfieldGacha(GachaEngine):
     def __init__(self, strategy: Strategy, free_per_banner=5):
         self.init_strategy = strategy
         self.strategy = copy.deepcopy(self.init_strategy)
@@ -325,14 +348,14 @@ class EndfieldGacha:
         self.reset()
 
     def set_initial_state(
-        self, pity_count=0, banner_pulls=0, paid_count=0, up_obtained=False, pending_bonus = 0, start_new_banner=False
+        self, pity_count=None, banner_pulls=None, paid_count=None, up_obtained=None, pending_bonus=None, start_new_banner=None
     ):
-        self.initial_pity = pity_count
-        self.initial_banner_pulls = banner_pulls
-        self.initial_up_obtained = up_obtained
-        self.initial_paid_count = paid_count
-        self.initial_pending_bonus = pending_bonus
-        self.start_with_new_banner = start_new_banner
+        self.initial_pity = self.initial_pity if pity_count is None else pity_count
+        self.initial_banner_pulls = self.initial_banner_pulls if banner_pulls is None else banner_pulls
+        self.initial_up_obtained = self.initial_up_obtained if up_obtained is None else up_obtained
+        self.initial_paid_count = self.initial_paid_count if paid_count is None else paid_count
+        self.initial_pending_bonus = self.initial_pending_bonus if pending_bonus is None else pending_bonus
+        self.start_with_new_banner = self.start_with_new_banner if start_new_banner is None else start_new_banner
         self.reset()
 
     def reset(self):
@@ -437,7 +460,6 @@ class EndfieldGacha:
             self.pending_bonus -= 1
 
     def simulate(self):
-        # self.start_banner()
         while True:
             action = self.strategy.next_gacha(
                 self.banner_id,
@@ -469,7 +491,8 @@ class EndfieldGacha:
                         "banner": self.banner_id,
                         "source": "240_Gift",
                         "res": "UP",
-                        "pity_at": None,
+                        "pity": None,
+                        "banner_pulls": self.banner_pulls,
                     }
                 )
 
@@ -486,13 +509,91 @@ class EndfieldGacha:
             pending_free=self.pending_bonus
         )
 
-    def multiple_sims(self, rounds=1000):
-        """Run multiple simulations and return list of raw reports."""
-        reports = []
-        for _ in range(rounds):
-            self.reset()
-            reports.append(self.simulate())
-        return reports
+
+class SimpleGacha(GachaEngine):
+    """Simplified gacha model: flat 2% UP / 8% 5* / remaining 4*, soft pity on UP only.
+
+    No banners, free pulls, or non-UP 6* (UP is the only top-rarity outcome). Pity tracks
+    pulls since the last UP: flat 2% through pull 50, then +2% per additional pull (capped
+    at 100%). Pulling continues/stops per `strategy` (banner_id/banner_pulls are unused --
+    pass 0 -- since this model has no banners; use a plain Strategy, not a banner-switching
+    one).
+    """
+
+    UP_BASE_RATE = 0.02
+    UP_SOFT_PITY_START = 50
+    UP_SOFT_PITY_STEP = 0.02
+    FIVE_STAR_RATE = 0.08
+
+    WEAPON_TOKEN_BY_RES = {"UP": 2000, "5": 200, "4": 20}
+
+    def __init__(self, strategy: Strategy):
+        self.init_strategy = strategy
+        self.initial_pity = 0
+        self.reset()
+
+    def set_initial_state(self, pity_count=None):
+        self.initial_pity = self.initial_pity if pity_count is None else pity_count
+        self.reset()
+
+    def reset(self):
+        self.strategy = copy.deepcopy(self.init_strategy)
+        self.paid_count = 0
+        self.pity_count = self.initial_pity
+        self.up_count_total = 0
+        self.weapon_token = 0
+        self.pull_history = []
+        self.inventory = {"UP": 0, "6": 0, "5": 0, "4": 0}
+
+    def _up_prob(self):
+        if self.pity_count <= self.UP_SOFT_PITY_START:
+            return self.UP_BASE_RATE
+        extra = self.pity_count - self.UP_SOFT_PITY_START
+        return min(1.0, self.UP_BASE_RATE + self.UP_SOFT_PITY_STEP * extra)
+
+    def pull(self, source_type="Paid"):
+        self.paid_count += 1
+        self.pity_count += 1
+
+        prob_up = self._up_prob()
+        rand_val = random.random()
+        if rand_val < prob_up:
+            res = "UP"
+        elif rand_val < prob_up + self.FIVE_STAR_RATE:
+            res = "5"
+        else:
+            res = "4"
+
+        self.inventory[res] += 1
+        self.weapon_token += self.WEAPON_TOKEN_BY_RES[res]
+        if res == "UP":
+            self.up_count_total += 1
+            self.pity_count = 0
+
+        self.pull_history.append(
+            {"source": source_type, "res": res, "pity": self.pity_count}
+        )
+        return res
+
+    def simulate(self):
+        while True:
+            action = self.strategy.next_gacha(
+                0, 0, self.pity_count, self.up_count_total, self.paid_count
+            )
+            if action == 0:
+                break
+            self.pull(source_type="Paid")
+        return self.generate_report()
+
+    def generate_report(self):
+        return GachaReport(
+            paid=self.paid_count,
+            free=0,
+            weapon_token=self.weapon_token,
+            inv=dict(self.inventory),
+            history=list(self.pull_history),
+            pending_free=0,
+        )
 
 
 class StatSummary(TypedDict):
@@ -745,8 +846,7 @@ WEAPON_TOKEN_PER_PITY_PULL = 26
 
 
 def estimate_pity_weapon_token_contribution(
-    strategy=None,
-    free_per_banner=10,
+    gacha,
     pity_range=range(65),
     rounds=2000,
     plot=False,
@@ -754,17 +854,23 @@ def estimate_pity_weapon_token_contribution(
 ):
     """Estimate the weapon-token value of carried-over pity via simulation + linear fit.
 
-    Farms a fixed pull budget with a strategy that is indifferent to UP status (S30 by
-    default: it just grinds a fixed number of banners/pulls regardless of outcome) starting
-    from each pity count in pity_range. Because the farming schedule is identical no matter
-    the starting pity, any difference in average weapon_token earned is attributable to the
-    starting pity shifting the odds of an early 6-star hit -- i.e. what that pity would have
-    been "worth" had it been farmed under a generic strategy instead of carried over.
+    gacha: a single GachaEngine instance, pre-configured with everything except pity_count
+    (e.g. EndfieldGacha(S30()) with set_initial_state(banner_pulls=0, up_obtained=False,
+    start_new_banner=True) already called; SimpleGacha needs no such pre-configuration).
+    Each pity_count in pity_range is then applied via gacha.set_initial_state(pity_count=p)
+    alone -- set_initial_state only touches the fields it's given, so this leaves the
+    pre-configured fields untouched.
 
-    pity_range defaults to 0-64 (below the soft-pity threshold at n=65 in
-    gacha_rate_at_nth_draw), where the per-pull hit rate is flat and the relationship between
-    starting pity and weapon_token is close to linear. Pity counts near hard pity (up to 79)
-    ramp up sharply and would skew a linear fit -- don't include them here.
+    Use a strategy indifferent to UP status (e.g. S30 for EndfieldGacha, or a plain Strategy
+    with a very high target_up_total for SimpleGacha) that just grinds a fixed number of
+    pulls regardless of outcome. Because the farming schedule is then identical no matter the
+    starting pity, any difference in average weapon_token earned is attributable to the
+    starting pity shifting the odds of an early hit -- i.e. what that pity would have been
+    "worth" had it been farmed under a generic strategy instead of carried over.
+
+    Keep pity_range below the model's soft-pity ramp-up point (e.g. 0-64 for EndfieldGacha,
+    whose soft pity starts at n=65 in gacha_rate_at_nth_draw) -- pity counts near hard pity
+    ramp up sharply and would skew a linear fit.
 
     A line is fit through avg weapon_token vs. starting pity_count; its slope is the
     estimated marginal weapon-token contribution per unit of carried-over pity.
@@ -775,14 +881,10 @@ def estimate_pity_weapon_token_contribution(
     Returns {"slope", "intercept", "avg_tokens"} where avg_tokens maps pity_count -> average
     total weapon_token earned from that starting pity.
     """
-    if strategy is None:
-        strategy = S30()
-
-    sim = EndfieldGacha(strategy, free_per_banner=free_per_banner)
     avg_tokens = {}
     for pity in pity_range:
-        sim.set_initial_state(pity_count=pity, banner_pulls=0, up_obtained=0, start_new_banner=True)
-        reports = sim.multiple_sims(rounds)
+        gacha.set_initial_state(pity_count=pity)
+        reports = gacha.multiple_sims(rounds)
         avg_tokens[pity] = statistics.mean(r.weapon_token for r in reports)
 
     slope, intercept = statistics.linear_regression(
@@ -835,8 +937,7 @@ def plot_pity_weapon_token_contribution(contribution, save_path=None):
 
 
 def analyze_pity_carryover_impact(
-    strategy,
-    free_per_banner=10,
+    gacha,
     pity_range=range(80),
     rounds=5000,
     weapon_token_per_pity=WEAPON_TOKEN_PER_PITY_PULL,
@@ -844,16 +945,22 @@ def analyze_pity_carryover_impact(
 ):
     """Simulate carrying each pity count into a new banner and plot the resulting average pull-cost metrics.
 
+    gacha: a single GachaEngine instance, pre-configured with everything except pity_count
+    (e.g. EndfieldGacha(SUP_SIMPLE()) with set_initial_state(banner_pulls=0, up_obtained=False,
+    start_new_banner=True) already called; SimpleGacha needs no such pre-configuration).
+    Each pity_count in pity_range is then applied via gacha.set_initial_state(pity_count=p)
+    alone -- set_initial_state only touches the fields it's given, so this leaves the
+    pre-configured fields untouched.
+
     weapon_token_per_pity: marginal weapon-token value of one unit of carried-over pity,
     used to normalize weapon_token (see estimate_pity_weapon_token_contribution).
 
     Returns the dict mapping carried-over pity_count -> GachaAnalyzer.avg_metrics() output.
     """
-    sim = EndfieldGacha(strategy, free_per_banner=free_per_banner)
     metrics_per_pity = {}
     for pity in pity_range:
-        sim.set_initial_state(pity_count=pity, banner_pulls=0, up_obtained=0, start_new_banner=True)
-        reports = sim.multiple_sims(rounds)
+        gacha.set_initial_state(pity_count=pity)
+        reports = gacha.multiple_sims(rounds)
         metrics_per_pity[pity] = GachaAnalyzer(reports).avg_metrics()
 
     plot_pity_carryover_impact(
@@ -891,7 +998,7 @@ def plot_pity_carryover_impact(
     def metric_values(metric):
         if metric == "weapon_token_normalized":
             return [
-                metrics_per_pity[p]["weapon_token"] + p * weapon_token_per_pity
+                metrics_per_pity[p]["weapon_token"] - metrics_per_pity[p]["paid_pulls"] * weapon_token_per_pity
                 for p in pity_counts
             ]
         return [metrics_per_pity[p][metric] for p in pity_counts]
@@ -938,7 +1045,7 @@ if __name__ == "__main__":
     # analyzer.print_multi_sim_pull_cost()
     # # analyzer.plot_pull_and_outcome_distributions()
 
-    contribution = estimate_pity_weapon_token_contribution(plot=True)
+    contribution = estimate_pity_weapon_token_contribution(EndfieldGacha(S30(), free_per_banner=10))
     print(
         f"weapon token / pity contribution factor: {contribution['slope']:.2f} "
         f"(intercept {contribution['intercept']:.2f})"
@@ -946,6 +1053,28 @@ if __name__ == "__main__":
 
     strat = SUP_SIMPLE(target_up_total=1, max_paid_pulls=10000)
     report_per_shuiwei = analyze_pity_carryover_impact(
-        strat, free_per_banner=10, weapon_token_per_pity=contribution["slope"]
+        EndfieldGacha(strat, free_per_banner=10), weapon_token_per_pity=contribution["slope"]
     )
+
+    # simple_strat = Strategy(target_up_total=1, max_paid_pulls=10000)
+    # simple_gacha = SimpleGacha(simple_strat)
+    # simple_reports = simple_gacha.multiple_sims(5000)
+    # GachaAnalyzer(simple_reports).plot_pull_and_outcome_distributions()
+
+    # Compare against the simplified model: new strategy (plain Strategy, no banners) and
+    # new engine (SimpleGacha). Its own weapon-token contribution is calibrated separately --
+    # SimpleGacha has different rarity odds/payouts than EndfieldGacha, so reusing its slope
+    # would be meaningless. Calibration needs a UP-indifferent, fixed-pull-budget grind (like
+    # S30 does for EndfieldGacha) -- target_up_total=99999 means it never stops early on UP,
+    # so every pity count farms exactly the same 1000 pulls (pity counts stay below
+    # SimpleGacha's soft-pity onset at 50).
+    # simple_contribution = estimate_pity_weapon_token_contribution(
+    #     SimpleGacha(Strategy(target_up_total=99999, max_paid_pulls=1000)),
+    #     pity_range=range(50),
+    # )
+
+    # report_per_shuiwei_simple = analyze_pity_carryover_impact(
+    #     SimpleGacha(Strategy(target_up_total=1, max_paid_pulls=10000)),
+    #     weapon_token_per_pity=simple_contribution["slope"],
+    # )
 
