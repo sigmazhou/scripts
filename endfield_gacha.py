@@ -992,13 +992,20 @@ def plot_pity_carryover_impact(
         "up_count": "平均UP数",
         "weapon_token": "平均武库",
         "weapon_token_per_paid": "平均武库/付费抽",
-        "weapon_token_normalized": f"归一化武库 (+保底数*{weapon_token_per_pity:.1f})",
+        # "weapon_token_normalized": f"归一化武库 (+/-保底数*{weapon_token_per_pity:.1f})",
+        "weapon_token_per_paid_normalized": "归一化武库/付费抽",
     }
 
     def metric_values(metric):
         if metric == "weapon_token_normalized":
+            # needs recalculation
             return [
-                metrics_per_pity[p]["weapon_token"] - metrics_per_pity[p]["paid_pulls"] * weapon_token_per_pity
+                metrics_per_pity[p]["weapon_token"] - p * weapon_token_per_pity - metrics_per_pity[p]["paid_pulls"] * 100
+                for p in pity_counts
+            ]
+        if metric == "weapon_token_per_paid_normalized":
+            return [
+                (metrics_per_pity[p]["weapon_token"] - p * weapon_token_per_pity)/metrics_per_pity[p]["paid_pulls"]
                 for p in pity_counts
             ]
         return [metrics_per_pity[p][metric] for p in pity_counts]
@@ -1045,7 +1052,8 @@ if __name__ == "__main__":
     # analyzer.print_multi_sim_pull_cost()
     # # analyzer.plot_pull_and_outcome_distributions()
 
-    contribution = estimate_pity_weapon_token_contribution(EndfieldGacha(S30(), free_per_banner=10))
+    fpb = 0
+    contribution = estimate_pity_weapon_token_contribution(EndfieldGacha(S30(), free_per_banner=fpb))
     print(
         f"weapon token / pity contribution factor: {contribution['slope']:.2f} "
         f"(intercept {contribution['intercept']:.2f})"
@@ -1053,7 +1061,7 @@ if __name__ == "__main__":
 
     strat = SUP_SIMPLE(target_up_total=1, max_paid_pulls=10000)
     report_per_shuiwei = analyze_pity_carryover_impact(
-        EndfieldGacha(strat, free_per_banner=10), weapon_token_per_pity=contribution["slope"]
+        EndfieldGacha(strat, free_per_banner=fpb), weapon_token_per_pity=contribution["slope"]
     )
 
     # simple_strat = Strategy(target_up_total=1, max_paid_pulls=10000)
