@@ -31,6 +31,7 @@ Avg = sum([gacha_pdf[i - 1] * i for i in range(1, 81)])
 import random
 import statistics
 import copy
+from typing import TypedDict
 
 
 class Strategy:
@@ -494,6 +495,37 @@ class EndfieldGacha:
         return reports
 
 
+class StatSummary(TypedDict):
+    avg: float
+    p50: float
+    p75: float
+    p90: float
+
+
+class AggregatedPullCostStats(TypedDict):
+    rounds: int
+    total_pulls: StatSummary
+    paid_pulls: StatSummary
+    up_count: StatSummary
+    six_star_count: StatSummary
+    total_per_up: StatSummary
+    total_per_6: StatSummary
+    pending_free: StatSummary
+    weapon_token: StatSummary
+    weapon_token_per_paid__ref: StatSummary
+    pooled_paid_per_6: float
+    pooled_total_per_6: float
+    pooled_paid_per_up: float
+    pooled_total_per_up: float
+    pooled_weapon_token_per_paid: float
+    _totals: list[int]
+    _paids: list[int]
+    _up_counts: list[int]
+    _six_counts: list[int]
+    _total_per_up: list[float]
+    _total_per_6: list[float]
+
+
 class GachaAnalyzer:
     """Analyzes gacha simulation reports produced by EndfieldGacha."""
     reports: list[GachaReport]
@@ -503,13 +535,13 @@ class GachaAnalyzer:
         if isinstance(reports, GachaReport):
             reports = [reports]
         self.reports = reports
-    
+
     def print_history(self, report_idx=-1):
         for pull in self.reports[report_idx].history:
             print(pull)
 
     @staticmethod
-    def _stat_summary(data):
+    def _stat_summary(data) -> StatSummary:
         if not data:
             return {"avg": 0, "p50": 0, "p75": 0, "p90": 0}
         avg = statistics.mean(data)
@@ -519,7 +551,7 @@ class GachaAnalyzer:
         qs = statistics.quantiles(data, n=100, method="inclusive")
         return {"avg": avg, "p50": qs[49], "p75": qs[74], "p90": qs[89]}
 
-    def _aggregate_pull_cost_stats(self):
+    def _aggregate_pull_cost_stats(self) -> AggregatedPullCostStats:
         """Compute per-sim distribution stats and pooled pull costs across all reports."""
         n = len(self.reports)
 
@@ -633,6 +665,18 @@ class GachaAnalyzer:
         print(f"  {'武库/付费抽 (pooled)':<26} {s['pooled_weapon_token_per_paid']:>8.2f}")
         print("=" * W)
 
+    def avg_metrics(self):
+        """Return the average per-sim value of the core pull-cost metrics."""
+        s = self._aggregate_pull_cost_stats()
+        return {
+            "paid_pulls": s["paid_pulls"]["avg"],
+            "total_pulls": s["total_pulls"]["avg"],
+            "six_star_count": s["six_star_count"]["avg"],
+            "up_count": s["up_count"]["avg"],
+            "weapon_token": s["weapon_token"]["avg"],
+            "weapon_token_per_paid": s["weapon_token_per_paid__ref"]["avg"],
+        }
+
     def plot_pull_and_outcome_distributions(self, save_path=None):
         """Plot histograms of total pulls, paid pulls, UP count, and pulls-per-UP across sims."""
         import matplotlib.pyplot as plt
@@ -695,6 +739,132 @@ class GachaAnalyzer:
         plt.show()
 
 
+# Rough fallback weapon-token-per-pity contribution, used only if
+# estimate_pity_weapon_token_contribution() hasn't been run.
+WEAPON_TOKEN_PER_PITY_PULL = 140
+
+
+def estimate_pity_weapon_token_contribution(
+    strategy=None, free_per_banner=10, pity_range=range(65), rounds=2000
+):
+    """Estimate the weapon-token value of carried-over pity via simulation + linear fit.
+
+    Farms a fixed pull budget with a strategy that is indifferent to UP status (S30 by
+    default: it just grinds a fixed number of banners/pulls regardless of outcome) starting
+    from each pity count in pity_range. Because the farming schedule is identical no matter
+    the starting pity, any difference in average weapon_token earned is attributable to the
+    starting pity shifting the odds of an early 6-star hit -- i.e. what that pity would have
+    been "worth" had it been farmed under a generic strategy instead of carried over.
+
+    pity_range defaults to 0-64 (below the soft-pity threshold at n=65 in
+    gacha_rate_at_nth_draw), where the per-pull hit rate is flat and the relationship between
+    starting pity and weapon_token is close to linear. Pity counts near hard pity (up to 79)
+    ramp up sharply and would skew a linear fit -- don't include them here.
+
+    A line is fit through avg weapon_token vs. starting pity_count; its slope is the
+    estimated marginal weapon-token contribution per unit of carried-over pity.
+
+    Returns {"slope", "intercept", "avg_tokens"} where avg_tokens maps pity_count -> average
+    total weapon_token earned from that starting pity.
+    """
+    if strategy is None:
+        strategy = S30()
+
+    sim = EndfieldGacha(strategy, free_per_banner=free_per_banner)
+    avg_tokens = {}
+    for pity in pity_range:
+        sim.set_initial_state(pity_count=pity, banner_pulls=0, up_obtained=0, start_new_banner=True)
+        reports = sim.multiple_sims(rounds)
+        avg_tokens[pity] = statistics.mean(r.weapon_token for r in reports)
+
+    slope, intercept = statistics.linear_regression(
+        list(avg_tokens.keys()), list(avg_tokens.values())
+    )
+    return {"slope": slope, "intercept": intercept, "avg_tokens": avg_tokens}
+
+
+def analyze_pity_carryover_impact(
+    strategy,
+    free_per_banner=10,
+    pity_range=range(80),
+    rounds=5000,
+    weapon_token_per_pity=WEAPON_TOKEN_PER_PITY_PULL,
+    save_path=None,
+):
+    """Simulate carrying each pity count into a new banner and plot the resulting average pull-cost metrics.
+
+    weapon_token_per_pity: marginal weapon-token value of one unit of carried-over pity,
+    used to normalize weapon_token (see estimate_pity_weapon_token_contribution).
+
+    Returns the dict mapping carried-over pity_count -> GachaAnalyzer.avg_metrics() output.
+    """
+    sim = EndfieldGacha(strategy, free_per_banner=free_per_banner)
+    metrics_per_pity = {}
+    for pity in pity_range:
+        sim.set_initial_state(pity_count=pity, banner_pulls=0, up_obtained=0, start_new_banner=True)
+        reports = sim.multiple_sims(rounds)
+        metrics_per_pity[pity] = GachaAnalyzer(reports).avg_metrics()
+
+    plot_pity_carryover_impact(
+        metrics_per_pity, weapon_token_per_pity=weapon_token_per_pity, save_path=save_path
+    )
+    return metrics_per_pity
+
+
+def plot_pity_carryover_impact(
+    metrics_per_pity, weapon_token_per_pity=WEAPON_TOKEN_PER_PITY_PULL, save_path=None
+):
+    """Plot how average pull-cost metrics vary with carried-over pity count.
+
+    metrics_per_pity: dict mapping carried-over pity_count -> GachaAnalyzer.avg_metrics() output.
+    weapon_token_per_pity: marginal weapon-token value of one unit of carried-over pity,
+    used to normalize weapon_token (see estimate_pity_weapon_token_contribution).
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib
+
+    matplotlib.rcParams["font.sans-serif"] = ["Arial Unicode MS", "SimHei", "DejaVu Sans"]
+    matplotlib.rcParams["axes.unicode_minus"] = False
+
+    pity_counts = sorted(metrics_per_pity.keys())
+    metric_titles = {
+        "paid_pulls": "平均付费抽数",
+        "total_pulls": "平均总抽数",
+        "six_star_count": "平均6星数",
+        "up_count": "平均UP数",
+        "weapon_token": "平均武库",
+        "weapon_token_per_paid": "平均武库/付费抽",
+        "weapon_token_normalized": f"归一化武库 (+保底数*{weapon_token_per_pity:.1f})",
+    }
+
+    def metric_values(metric):
+        if metric == "weapon_token_normalized":
+            return [
+                metrics_per_pity[p]["weapon_token"] + p * weapon_token_per_pity
+                for p in pity_counts
+            ]
+        return [metrics_per_pity[p][metric] for p in pity_counts]
+
+    fig, axes = plt.subplots(2, 4, figsize=(22, 10))
+    fig.suptitle("继承保底抽数对下期抽卡的影响", fontsize=16)
+
+    for ax, (metric, title) in zip(axes.flat, metric_titles.items()):
+        ax.plot(pity_counts, metric_values(metric), marker="o", markersize=3)
+        ax.set_title(title)
+        ax.set_xlabel("继承保底抽数")
+        ax.set_ylabel(title)
+        ax.grid(True, alpha=0.3)
+
+    for ax in axes.flat[len(metric_titles):]:
+        ax.axis("off")
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=150)
+        print(f"图表已保存至: {save_path}")
+    plt.show()
+
+
 if __name__ == "__main__":
     # strat_multi = MyStrat4(target_up_total=1, max_paid_pulls=10000)
     # sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
@@ -717,16 +887,14 @@ if __name__ == "__main__":
     # analyzer.print_multi_sim_pull_cost()
     # # analyzer.plot_pull_and_outcome_distributions()
 
-    report_per_shuiwei = dict()
+    contribution = estimate_pity_weapon_token_contribution()
+    print(
+        f"weapon token / pity contribution factor: {contribution['slope']:.2f} "
+        f"(intercept {contribution['intercept']:.2f})"
+    )
 
     strat = SUP_SIMPLE(target_up_total=1, max_paid_pulls=10000)
-    sim_multi = EndfieldGacha(strat, free_per_banner=10)
-    for i in range(0,80):
-        sim_multi.set_initial_state(pity_count=i, banner_pulls=0, up_obtained=0, start_new_banner=True)
-        report = sim_multi.multiple_sims(5000)
-        analyzer = GachaAnalyzer(report)
-        report_per_shuiwei[i]=analyzer._aggregate_pull_cost_stats()
-
-    for i, d in report_per_shuiwei.items():
-        # TBD
+    report_per_shuiwei = analyze_pity_carryover_impact(
+        strat, free_per_banner=10, weapon_token_per_pity=contribution["slope"]
+    )
 
