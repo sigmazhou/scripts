@@ -41,6 +41,7 @@ t8v2_sequence := "wvytaewzret w.2egayde.4zt e.3awecryte.4a dxwzewtre wgavzcy"  ;
 t8v3_sequence := "wvytaewzret w.2gayedtwze x.5awtcrydwe.4w.3a tezwewtre wgavzcy"
 
 t9v1_sequence := "wvytaewzret w.2egayde.4zt e.3awecryte.4a dxwzewtre wgvcayztrwe"  ; mirrors t8v2
+t9v2_sequence := "wvytaewzret w.2ewagye.4zt e.3awecrytewa dxwzewtre wgvacyztrwe"
 
 
 
@@ -88,8 +89,8 @@ getwinsize()
 
 End::{
     Send "{Right}"
-    Sleep 200
-    play_sequence(t9v1_sequence, False)
+    Sleep 100
+    play_sequence(t9v2_sequence, False)
     ;auto_regular
     ;snypo
 }
@@ -179,7 +180,7 @@ snypo(){
 
 beuc_sl(savefile:="beuc.txt"){
     ih := InputHook("L1")
-    Loop 30 {
+    Loop 40 {
         switchpage(4)
         is_left := 1
         Loop (A_Index-1){
@@ -195,10 +196,20 @@ beuc_sl(savefile:="beuc.txt"){
         ih.Start()
         ih.Wait()
         if (ih.Input != "n") {
-            break
+            exit
         }
         load_save(savefile)
         sleep 200
+    }
+    ; final refresh for new rng seed
+    switchpage(4)
+    is_left := 1
+    Loop 42{
+        if (Mod(A_Index, 2) == 1) {
+            keyslp "{Left}", 30
+        } else {
+            keyslp "{Right}", 30
+        }
     }
 }
 
@@ -206,7 +217,7 @@ load_save(savefile) {
     clkslp 370, 1445
     send savefile
     send "{Enter}"
-    sleep 100
+    sleep 200
     clkslp 896, 1679
 }
 
