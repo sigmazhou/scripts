@@ -52,14 +52,14 @@ class S60(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
         self.target_up_total = target_up_total
         self.max_paid_pulls = max_paid_pulls
-        self.bct = 20
+        self.bct = 30
 
     def next_gacha(
         self, banner_id, banner_pulls, pity_count, up_count_total, paid_pulls_total
     ):
         if self.bct <= 0:
             return 0
-        if self.bct <= 10:
+        if self.bct <= 15:
             self.bct -= 1
             if self.bct <= 0:
                 return 0
@@ -69,11 +69,38 @@ class S60(Strategy):
             return 2
         return 1
 
+
+class S60_30_0(Strategy):
+    def __init__(self, target_up_total=1, max_paid_pulls=1000):
+        self.target_up_total = target_up_total
+        self.max_paid_pulls = max_paid_pulls
+        self.bct = 30
+
+    def next_gacha(
+        self, banner_id, banner_pulls, pity_count, up_count_total, paid_pulls_total
+    ):
+        if self.bct <= 0:
+            return 0
+        if self.bct % 3 == 0:
+            if banner_pulls >= 60:
+                self.bct -= 1
+                return 2
+            return 1
+        if self.bct % 3 == 2:
+            if banner_pulls >= 30:
+                self.bct -= 1
+                return 2
+            return 1
+        self.bct -= 1
+        if self.bct <= 0:
+            return 0
+        return 2
+
 class S30(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
         self.target_up_total = target_up_total
         self.max_paid_pulls = max_paid_pulls
-        self.bct = 20
+        self.bct = 30
 
     def next_gacha(
         self, banner_id, banner_pulls, pity_count, up_count_total, paid_pulls_total
@@ -116,6 +143,22 @@ class SUP(Strategy):
             self.bct -= 1
             return 2
 
+
+class SUP_SIMPLE(Strategy):
+    def __init__(self, target_up_total=1, max_paid_pulls=1000):
+        self.target_up_total = target_up_total
+        self.max_paid_pulls = max_paid_pulls
+        self.curr_up_ct = 0
+
+    def next_gacha(
+        self, banner_id, banner_pulls, pity_count, up_count_total, paid_pulls_total
+    ):
+        if up_count_total > self.curr_up_ct:
+            self.curr_up_ct = up_count_total
+            if up_count_total >= self.target_up_total:
+                return 0
+            return 2
+        return 1
 
 class Swisdom(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
@@ -160,7 +203,7 @@ class MyStrat1(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
         self.target_up_total = target_up_total
         self.max_paid_pulls = max_paid_pulls
-        self.passonect = 10
+        self.passonect = 60
 
     def next_gacha(
         self, banner_id, banner_pulls, pity_count, up_count_total, paid_pulls_total
@@ -653,48 +696,37 @@ class GachaAnalyzer:
 
 
 if __name__ == "__main__":
-    # --- 单次模拟测试 ---
-    # print("\n>>> 执行单次模拟测试 <<<")
-    # strat_multi = MyStrat2(target_up_total=1, max_paid_pulls=10000)
-    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=5)
-    # sim_multi.set_initial_state(pity_count=15, banner_pulls=0)
-    # report_single = sim_multi.simulate()
+    # strat_multi = MyStrat4(target_up_total=1, max_paid_pulls=10000)
+    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
+    # sim_multi.set_initial_state(pity_count=0, banner_pulls=0, up_obtained=0, start_new_banner=True)
+    # # report_single = sim_multi.simulate()
+    # report_single = sim_multi.multiple_sims(5000)
 
     # analyzer = GachaAnalyzer(report_single)
-    # analyzer.print_single_sim_pull_cost()
-
-    # ct = 0
-    # for i in report_single.history:
-    #     print(i)
-    #     ct+=1
-    #     if ct%20 == 0:
-    #         input()
-
-    # --- 多轮模拟测试 ---
-    # print("\n>>> 执行多轮期望测试 <<<")
-    # strat_multi = S60(target_up_total=10, max_paid_pulls=10000)
-    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
-    # sim_multi.set_initial_state(pity_count=0, banner_pulls=0, start_new_banner=True, pending_bonus=0)
-    # reports = sim_multi.multiple_sims(rounds=10000)
-    # analyzer = GachaAnalyzer(reports)
+    # # analyzer.print_history()
+    # # analyzer.print_single_sim_pull_cost()
     # analyzer.print_multi_sim_pull_cost()
-    # analyzer.plot_pull_and_outcome_distributions()
+    # # analyzer.plot_pull_and_outcome_distributions()
+    
+    # strat_multi = MyStrat1(target_up_total=1, max_paid_pulls=10000)
+    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
+    # sim_multi.set_initial_state(pity_count=0, banner_pulls=0, up_obtained=0, start_new_banner=True)
+    # report_single = sim_multi.multiple_sims(5000)
 
-    # print("\n>>> 执行单次模拟测试 <<<")
-    strat_multi = MyStrat3(target_up_total=1, max_paid_pulls=10000)
-    sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
-    sim_multi.set_initial_state(pity_count=0, banner_pulls=32, up_obtained=1)
-    report_single = sim_multi.multiple_sims()
+    # analyzer = GachaAnalyzer(report_single)
+    # analyzer.print_multi_sim_pull_cost()
+    # # analyzer.plot_pull_and_outcome_distributions()
 
-    analyzer = GachaAnalyzer(report_single)
-    analyzer.print_multi_sim_pull_cost()
-    # analyzer.plot_pull_and_outcome_distributions()
+    report_per_shuiwei = dict()
 
-    strat_multi = MyStrat4(target_up_total=1, max_paid_pulls=10000)
-    sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
-    sim_multi.set_initial_state(pity_count=0, banner_pulls=32, up_obtained=1)
-    report_single = sim_multi.multiple_sims()
+    strat = SUP_SIMPLE(target_up_total=1, max_paid_pulls=10000)
+    sim_multi = EndfieldGacha(strat, free_per_banner=10)
+    for i in range(0,80):
+        sim_multi.set_initial_state(pity_count=i, banner_pulls=0, up_obtained=0, start_new_banner=True)
+        report = sim_multi.multiple_sims(5000)
+        analyzer = GachaAnalyzer(report)
+        report_per_shuiwei[i]=analyzer._aggregate_pull_cost_stats()
 
-    analyzer = GachaAnalyzer(report_single)
-    analyzer.print_multi_sim_pull_cost()
-    # analyzer.plot_pull_and_outcome_distributions()
+    for i, d in report_per_shuiwei.items():
+        # TBD
+
