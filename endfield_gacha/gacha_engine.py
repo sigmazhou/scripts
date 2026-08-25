@@ -92,6 +92,7 @@ class EndfieldGacha(GachaEngine):
         self.pity_count_5_star = 0
         self.up_obtained_current = self.initial_up_obtained
         self.total_up_count = 0
+        self.banner_up_count = 0
         self.weapon_token = 0
 
         self.banner_id = 0
@@ -149,6 +150,7 @@ class EndfieldGacha(GachaEngine):
         self.inventory[res] += 1
         if res == "UP":
             self.total_up_count += 1
+            self.banner_up_count += 1
             self.up_obtained_current = True
 
         if is_pity_contributing:
@@ -175,6 +177,7 @@ class EndfieldGacha(GachaEngine):
         self.banner_id += 1
         self.banner_pulls = 0
         self.up_obtained_current = False
+        self.banner_up_count = 0
         self.welfare_30_used = False
         self.welfare_30_pity_count_5_star = 0
 
@@ -187,11 +190,12 @@ class EndfieldGacha(GachaEngine):
     def simulate(self):
         while True:
             action = self.strategy.next_gacha(
-                self.banner_id,
-                self.banner_pulls,
-                self.pity_count,
-                self.total_up_count,
-                self.paid_count,
+                banner_id=self.banner_id,
+                banner_pulls=self.banner_pulls,
+                banner_up_count=self.banner_up_count,
+                pity_count=self.pity_count,
+                up_count_total=self.total_up_count,
+                paid_pulls_total=self.paid_count,
             )
             if self.banner_pulls == 60 and not self.pending_bonus:
                 self.pending_bonus += 10
@@ -210,6 +214,7 @@ class EndfieldGacha(GachaEngine):
 
             if self.banner_pulls > 0 and self.banner_pulls % 240 == 0:
                 self.total_up_count += 1
+                self.banner_up_count += 1
                 self.inventory["UP"] += 1
                 self.pull_history.append(
                     {
@@ -303,7 +308,12 @@ class SimpleGacha(GachaEngine):
     def simulate(self):
         while True:
             action = self.strategy.next_gacha(
-                0, 0, self.pity_count, self.up_count_total, self.paid_count
+                banner_id=0,
+                banner_pulls=0,
+                banner_up_count=self.up_count_total,
+                pity_count=self.pity_count,
+                up_count_total=self.up_count_total,
+                paid_pulls_total=self.paid_count,
             )
             if action == 0:
                 break
