@@ -150,67 +150,19 @@ class Swisdom(Strategy):
 class MyStrat1(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
         super().__init__(target_up_total, max_paid_pulls)
-        self.passonect = 60
-
-    def next_gacha(
-        self, banner_id, banner_pulls, banner_up_count, pity_count, up_count_total, paid_pulls_total
-    ):
-        if self.passonect > 0:
-            if banner_pulls < self.passonect:
-                return 1
-            else:
-                self.passonect = -1
-                self.b1 = up_count_total
-                return 2
-        if paid_pulls_total >= self.max_paid_pulls:
-            return 0
-        if up_count_total - self.b1 >= self.target_up_total:
-            return 0
-        return 1
+        self.plan = [30, "UP"]
 
 
 class MyStrat2(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
         super().__init__(target_up_total, max_paid_pulls)
-        self.passonect = 30
-
-    def next_gacha(
-        self, banner_id, banner_pulls, banner_up_count, pity_count, up_count_total, paid_pulls_total
-    ):
-        if self.passonect > 0:
-            if banner_pulls < self.passonect:
-                return 1
-            else:
-                self.passonect = -1
-                self.b1 = up_count_total
-                return 2
-        if paid_pulls_total >= self.max_paid_pulls:
-            return 0
-        if up_count_total - self.b1 >= self.target_up_total:
-            return 0
-        return 1
-
+        self.plan = [60, "UP"]
 
 
 class MyStrat3(Strategy):
-    # when already win at 30, should I get to 60
     def __init__(self, target_up_total=1, max_paid_pulls=1000):
         super().__init__(target_up_total, max_paid_pulls)
-        self.passed_one = 0
-        self.ucc = 0
-
-    def next_gacha(
-        self, banner_id, banner_pulls, banner_up_count, pity_count, up_count_total, paid_pulls_total
-    ):
-        if not self.passed_one and banner_pulls<60:
-            return 1
-        if not self.passed_one:
-            self.passed_one = 1
-            self.ucc = up_count_total
-            return 2
-        if self.ucc == up_count_total:
-            return 1
-        return 0
+        self.plan = [60, 30, "UP"]
 
 
 class MyStrat4(Strategy):

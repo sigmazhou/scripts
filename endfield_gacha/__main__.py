@@ -55,38 +55,38 @@ from .analysis import (
 
 
 if __name__ == "__main__":
-    # strat_multi = MyStrat4(target_up_total=1, max_paid_pulls=10000)
-    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
-    # sim_multi.set_initial_state(pity_count=0, banner_pulls=0, up_obtained=0, start_new_banner=True)
-    # # report_single = sim_multi.simulate()
-    # report_single = sim_multi.multiple_sims(5000)
+    strat_multi = MyStrat1(target_up_total=1, max_paid_pulls=10000)
+    sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
+    sim_multi.set_initial_state(pity_count=0, banner_pulls=0, up_obtained=0, start_new_banner=True)
+    # report_single = sim_multi.simulate()
+    report_single = sim_multi.multiple_sims(5000)
 
-    # analyzer = GachaAnalyzer(report_single)
-    # # analyzer.print_history()
-    # # analyzer.print_single_sim_pull_cost()
-    # analyzer.print_multi_sim_pull_cost()
-    # # analyzer.plot_pull_and_outcome_distributions()
+    analyzer = GachaAnalyzer(report_single)
+    # analyzer.print_history()
+    # analyzer.print_single_sim_pull_cost()
+    analyzer.print_multi_sim_pull_cost()
+    # analyzer.plot_pull_and_outcome_distributions()
 
-    # strat_multi = MyStrat1(target_up_total=1, max_paid_pulls=10000)
-    # sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
-    # sim_multi.set_initial_state(pity_count=0, banner_pulls=0, up_obtained=0, start_new_banner=True)
-    # report_single = sim_multi.multiple_sims(5000)
+    strat_multi = MyStrat2(target_up_total=1, max_paid_pulls=10000)
+    sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
+    sim_multi.set_initial_state(pity_count=0, banner_pulls=0, up_obtained=0, start_new_banner=True)
+    report_single = sim_multi.multiple_sims(5000)
 
-    # analyzer = GachaAnalyzer(report_single)
-    # analyzer.print_multi_sim_pull_cost()
-    # # analyzer.plot_pull_and_outcome_distributions()
+    analyzer = GachaAnalyzer(report_single)
+    analyzer.print_multi_sim_pull_cost()
+    # analyzer.plot_pull_and_outcome_distributions()
 
-    fpb = 0
-    contribution = estimate_pity_weapon_token_contribution(EndfieldGacha(S30(), free_per_banner=fpb))
-    print(
-        f"weapon token / pity contribution factor: {contribution['slope']:.2f} "
-        f"(intercept {contribution['intercept']:.2f})"
-    )
+    # fpb = 10
+    # contribution = estimate_pity_weapon_token_contribution(EndfieldGacha(S30(), free_per_banner=fpb))
+    # print(
+    #     f"weapon token / pity contribution factor: {contribution['slope']:.2f} "
+    #     f"(intercept {contribution['intercept']:.2f})"
+    # )
 
-    strat = SUP_SIMPLE(target_up_total=1, max_paid_pulls=10000)
-    report_per_shuiwei = analyze_pity_carryover_impact(
-        EndfieldGacha(strat, free_per_banner=fpb), weapon_token_per_pity=contribution["slope"]
-    )
+    # strat = SUP_SIMPLE(target_up_total=1, max_paid_pulls=10000)
+    # report_per_shuiwei = analyze_pity_carryover_impact(
+    #     EndfieldGacha(strat, free_per_banner=fpb), weapon_token_per_pity=contribution["slope"]
+    # )
 
     # simple_strat = Strategy(target_up_total=1, max_paid_pulls=10000)
     # simple_gacha = SimpleGacha(simple_strat)
