@@ -64,6 +64,11 @@ class S30(Strategy):
         super().__init__(target_up_total, max_paid_pulls)
         self.plan = [30]*30
 
+class S0(Strategy):
+    def __init__(self, target_up_total=1, max_paid_pulls=1000):
+        super().__init__(target_up_total, max_paid_pulls)
+        self.plan = [0]*30
+
 
 class SUP(Strategy):
     def __init__(self, target_up_total=1, max_paid_pulls=1000):

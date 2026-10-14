@@ -4,6 +4,9 @@ from typing import TypedDict
 from .gacha_engine import GachaReport
 
 
+WEAPON_TOKEN_PER_FREE_PULL = 78.3
+
+
 class StatSummary(TypedDict):
     avg: float
     p50: float
@@ -22,11 +25,13 @@ class AggregatedPullCostStats(TypedDict):
     pending_free: StatSummary
     weapon_token: StatSummary
     weapon_token_per_paid__ref: StatSummary
+    weapon_token_per_paid_corrected__ref: StatSummary
     pooled_paid_per_6: float
     pooled_total_per_6: float
     pooled_paid_per_up: float
     pooled_total_per_up: float
     pooled_weapon_token_per_paid: float
+    pooled_weapon_token_per_paid_corrected: float
     _totals: list[int]
     _paids: list[int]
     _up_counts: list[int]
@@ -48,6 +53,12 @@ class GachaAnalyzer:
     def print_history(self, report_idx=-1):
         for pull in self.reports[report_idx].history:
             print(pull)
+
+    @staticmethod
+    def _corrected_weapon_token(report: GachaReport) -> float:
+        """Subtract the estimated token contribution of per-banner free pulls."""
+        free_banner_pulls = sum(pull["source"] == "Free_Banner" for pull in report.history)
+        return report.weapon_token - free_banner_pulls * WEAPON_TOKEN_PER_FREE_PULL
 
     @staticmethod
     def _stat_summary(data) -> StatSummary:
@@ -72,6 +83,10 @@ class GachaAnalyzer:
         total_per_6 = [r.total / r.six_star_count for r in self.reports if r.six_star_count > 0]
         pending_frees = [r.pending_free for r in self.reports]
         weapon_tokens = [r.weapon_token for r in self.reports]
+        corrected_weapon_tokens = [self._corrected_weapon_token(r) for r in self.reports]
+        paid_stats = self._stat_summary(paids)
+        weapon_token_stats = self._stat_summary(weapon_tokens)
+        corrected_weapon_token_stats = self._stat_summary(corrected_weapon_tokens)
 
         agg_paid = sum(paids)
         agg_total = sum(totals)
@@ -81,23 +96,30 @@ class GachaAnalyzer:
         return {
             "rounds": n,
             "total_pulls": self._stat_summary(totals),
-            "paid_pulls": self._stat_summary(paids),
+            "paid_pulls": paid_stats,
             "up_count": self._stat_summary(up_counts),
             "six_star_count": self._stat_summary(six_counts),
             "total_per_up": self._stat_summary(total_per_up),
             "total_per_6": self._stat_summary(total_per_6),
             "pending_free": self._stat_summary(pending_frees),
-            "weapon_token": self._stat_summary(weapon_tokens),
-            "weapon_token_per_paid__ref": (lambda wt, pd: {
-                k: wt[k] / pd[k] if pd[k] else 0
+            "weapon_token": weapon_token_stats,
+            "weapon_token_per_paid__ref": {
+                k: weapon_token_stats[k] / paid_stats[k] if paid_stats[k] else 0
                 for k in ("avg", "p50", "p75", "p90")
-            })(self._stat_summary(weapon_tokens), self._stat_summary(paids)),
+            },
+            "weapon_token_per_paid_corrected__ref": {
+                k: corrected_weapon_token_stats[k] / paid_stats[k] if paid_stats[k] else 0
+                for k in ("avg", "p50", "p75", "p90")
+            },
             "pooled_paid_per_6": agg_paid / agg_6 if agg_6 > 0 else 0,
             "pooled_total_per_6": agg_total / agg_6 if agg_6 > 0 else 0,
             "pooled_paid_per_up": agg_paid / agg_up if agg_up > 0 else 0,
             "pooled_total_per_up": agg_total / agg_up if agg_up > 0 else 0,
             "pooled_weapon_token_per_paid": (
                 sum(r.weapon_token for r in self.reports) / agg_paid if agg_paid > 0 else 0
+            ),
+            "pooled_weapon_token_per_paid_corrected": (
+                sum(corrected_weapon_tokens) / agg_paid if agg_paid > 0 else 0
             ),
             # raw lists for graphing
             "_totals": totals,
@@ -131,6 +153,7 @@ class GachaAnalyzer:
         print(f"  {'总武库':30s} {r.weapon_token:>8}")
         if r.paid:
             print(f"  {'武库/付费抽':30s} {r.weapon_token / r.paid:>8.2f}")
+            print(f"  {'修正武库/付费抽':30s} {self._corrected_weapon_token(r) / r.paid:>8.2f}")
         print(f"  {'pending bonus':30s} {r.pending_free:>8} 抽")
         print("=" * W)
 
@@ -165,6 +188,7 @@ class GachaAnalyzer:
         row("pending bonus",    "pending_free",   "抽")
         row("总武库",            "weapon_token")
         row("总武库/付费抽 *",   "weapon_token_per_paid__ref")
+        row("修正武库/付费抽 *", "weapon_token_per_paid_corrected__ref")
         print("-" * W)
         print("  合并统计 (pooled)")
         print(f"  {'每 6 星消耗 (付费抽)':<26} {s['pooled_paid_per_6']:>8.2f} 抽")
@@ -172,6 +196,7 @@ class GachaAnalyzer:
         print(f"  {'每 UP 消耗 (付费抽)':<26} {s['pooled_paid_per_up']:>8.2f} 抽")
         print(f"  {'每 UP 消耗 (总抽数)':<26} {s['pooled_total_per_up']:>8.2f} 抽")
         print(f"  {'武库/付费抽 (pooled)':<26} {s['pooled_weapon_token_per_paid']:>8.2f}")
+        print(f"  {'修正武库/付费抽 (pooled)':<26} {s['pooled_weapon_token_per_paid_corrected']:>8.2f}")
         print("=" * W)
 
     def avg_metrics(self):
@@ -184,6 +209,7 @@ class GachaAnalyzer:
             "up_count": s["up_count"]["avg"],
             "weapon_token": s["weapon_token"]["avg"],
             "weapon_token_per_paid": s["weapon_token_per_paid__ref"]["avg"],
+            "weapon_token_per_paid_corrected": s["weapon_token_per_paid_corrected__ref"]["avg"],
         }
 
     def plot_pull_and_outcome_distributions(self, save_path=None):

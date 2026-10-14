@@ -35,6 +35,7 @@ from .strategies import (
     S60,
     S60_30_0,
     S30,
+    S0,
     SUP,
     SUP_SIMPLE,
     Swisdom,
@@ -54,8 +55,15 @@ from .analysis import (
 )
 
 
+"""
+只有免费10垫30不如直接垫到60 在之前水位是0的情况下还是比裸抽武库赚一点 
+30左右出垫到60在接一个30是最高效的
+裸抽武库大约110-114 token/付费角色抽
+每池免费10抽大约对应783 token
+"""
+
 if __name__ == "__main__":
-    strat_multi = MyStrat1(target_up_total=1, max_paid_pulls=10000)
+    strat_multi = S0(target_up_total=1, max_paid_pulls=10000)
     sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
     sim_multi.set_initial_state(pity_count=0, banner_pulls=0, up_obtained=0, start_new_banner=True)
     # report_single = sim_multi.simulate()
@@ -67,12 +75,14 @@ if __name__ == "__main__":
     analyzer.print_multi_sim_pull_cost()
     # analyzer.plot_pull_and_outcome_distributions()
 
-    strat_multi = MyStrat2(target_up_total=1, max_paid_pulls=10000)
+    strat_multi = S60_30_0(target_up_total=1, max_paid_pulls=10000)
     sim_multi = EndfieldGacha(strat_multi, free_per_banner=10)
     sim_multi.set_initial_state(pity_count=0, banner_pulls=0, up_obtained=0, start_new_banner=True)
+    # sim_multi.set_initial_state(pity_count=0, banner_pulls=30, up_obtained=0, start_new_banner=False)
     report_single = sim_multi.multiple_sims(5000)
 
     analyzer = GachaAnalyzer(report_single)
+    # analyzer.print_history()
     analyzer.print_multi_sim_pull_cost()
     # analyzer.plot_pull_and_outcome_distributions()
 
