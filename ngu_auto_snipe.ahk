@@ -1,6 +1,7 @@
 #Requires AutoHotkey v2.0
 SendMode "Input"
 #Warn All, Off
+#SingleInstance
 SetDefaultMouseSpeed 0
 
 ; 获取间隔参数（单位：毫秒），默认 1000
@@ -14,7 +15,7 @@ if A_Args.Length >= 1 {
     }
 }
 
-respawn := 1240 ;1060 ; 1240 ; 1410
+max_of_respawn_n_gcd := 920 ;850 ;1040 ; 1240 ; 1410
 
 ; 配置需要输入的序列（在此修改内容）
 avsp_sequence := "fhgytrewaw edtwewwxay trsewwdetw weagyetr"
@@ -42,6 +43,8 @@ t8v3_sequence := "wvytaewzret w.2gayedtwze x.5awtcrydwe.4w.3a tezwewtre wgavzcy"
 
 t9v1_sequence := "wvytaewzret w.2egayde.4zt e.3awecryte.4a dxwzewtre wgvcayztrwe"  ; mirrors t8v2
 t9v2_sequence := "wvytaewzret w.2ewagye.4zt e.3awecrytewa dxwzewtre wgvacyztrwe"
+t9v3_sequence := "vytaewzret w.2eagywe.4zt e.3awecrytewa dxwzewtre wgvacyztrwe"
+t9v4_sequence := "vytaewzret w.2eagywe.4zt edawecrytewa dxwzewtre wgvacyztrwe"
 
 
 
@@ -89,8 +92,8 @@ getwinsize()
 
 End::{
     Send "{Right}"
-    Sleep 100
-    play_sequence(t9v2_sequence, False)
+    Sleep 750
+    play_sequence(t9v4_sequence, False)
     ;auto_regular
     ;snypo
 }
@@ -113,7 +116,7 @@ PgDn::{
 }
 
 PgUp::{
-    beuc_sl()
+    auto_regular()
 }
 
 Insert::{
@@ -400,7 +403,7 @@ auto_regular() {
         if !running {
             break
         }
-        keyslp "w", respawn
+        keyslp "w", max_of_respawn_n_gcd
     }
 }
 
